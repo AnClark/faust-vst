@@ -408,6 +408,7 @@ class dsp {
 extern "C" {
 #define VST_EXPORT   __attribute__ ((visibility ("default")))
 extern VST_EXPORT AEffect * VSTPluginMain(audioMasterCallback audioMaster);
+// This is for legacy (<2.4) VST hosts which look for the 'main' entry point.
 AEffect *main_plugin (audioMasterCallback audioMaster) asm ("main");
 #define main main_plugin
 VST_EXPORT AEffect * main(audioMasterCallback audioMaster)

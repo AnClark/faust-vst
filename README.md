@@ -23,11 +23,17 @@ the SDK variable in these files accordingly.
 Installation
 ------------
 
+You need to have Faust, GNU make and a suitable C++ compiler installed (gcc is
+used by default in the faust2faustvst script, but this can be changed).
+
 Make sure that you have the VST SDK installed in the appropriate location,
 then run `make` and `make install`. The latter will install the compiled
 plugins under /usr/local/lib/vst by default. There's also a `make
 install-faust` target to install the faust2faustvst script into /usr/local/bin
 and the faustvst.cpp architecture into /usr/local/lib/faust, respectively.
+The latter will be necessary if you want to compile your own plugins using the
+faustvst.cpp architecture and you're using a Faust version that doesn't
+include faustvst yet.
 
 You can adjust the installation prefix with the `prefix` make variable, and
 package maintainers can specify a staging directory with the `DESTDIR`
@@ -39,14 +45,7 @@ Usage
 The present implementation is based on the code of the [faust-lv2][3] plugin
 architecture and provides pretty much the same features, such as automatic
 controller mappings and voice allocation for polyphonic instrument plugins
-(VSTi). The same architecture is used for both effect and instrument
-plugins. For the latter, you may define the `NVOICES` macro at build time in
-the same manner as with the lv2synth.cpp architecture, or you may specify the
-maximum number of voices with the `nvoices` meta key in the Faust source;
-please see the included examples for details. Instrument plugins also support
-the MIDI Tuning Standard (MTS) in the same way as with the lv2synth.cpp
-architecture, but note that many VST hosts lack support for sending the
-corresponding sysex messages to VST plugins right now.
+(VSTi).
 
 To compile your own plugins, you can use the provided faustvst.cpp
 architecture with the Faust compiler like this: `faust -a faustvst.cpp`. You
@@ -58,18 +57,26 @@ then invoke the C++ compiler on the resulting C++ code to create a working
 plugin. All the necessary compiler and linker options are provided
 automatically.
 
-To compile an instrument plugin, you can either specify the maximum polyphony
-with the `-nvoices` option of the faust2faustvst script or add a definition
+The same architecture is used for both effect and instrument plugins. For the
+latter, you may define the `NVOICES` macro at build time in the same manner as
+with the lv2synth.cpp architecture, or you may specify the maximum number of
+voices with the `nvoices` meta key in the Faust source.
+
+Please check examples/organ.dsp in the distributed sources for a simple
+example of an instrument plugin. The rules for creating the voice controls
+`freq`, `gain` and `gate` are the same as for the lv2synth.cpp architecture.
+Instrument plugins also support the MIDI Tuning Standard (MTS) in the same way
+as with the lv2synth.cpp architecture, but note that many VST hosts lack
+support for sending the corresponding sysex messages to VST plugins right now.
+
+To compile an instrument plugin with the faust2faustvst script, you can either
+specify the maximum polyphony with the `-nvoices` option, or add a definition
 like the following to the beginning of your Faust source:
 
     nvoices "16";
 
 If both are specified then the command line option takes precedence. Using
 `-nvoices 0` creates an ordinary effect plugin without MIDI note processing.
-
-Please check organ.dsp for a simple example of an instrument plugin. The rules
-for creating the voice controls `freq`, `gain` and `gate` are the same as for
-the lv2synth.cpp architecture.
 
 [1]: http://www.steinberg.net/en/company/developers.html
 [2]: http://faust.grame.fr/

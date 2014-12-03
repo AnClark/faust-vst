@@ -13,12 +13,10 @@ libdir = $(prefix)/lib
 vstlibdir = $(libdir)/vst
 faustlibdir = $(libdir)/faust
 
-# To compile VST plugins generated with the faustvst architecture, you'll need
-# the Steinberg SDK version 2.4 or later, which can be obtained here:
-# http://www.steinberg.net/en/company/developers.html
-# We assume that the SDK files are located at ../vstsdk. If you keep them
-# elsewhere then you'll have to adjust the SDK variable below accordingly.
-SDK = ../vstsdk
+# We assume that the SDK files are located at /usr/local/src/vstsdk. If you
+# keep them elsewhere then you'll have to adjust the SDK variable below
+# accordingly.
+SDK = /usr/local/src/vstsdk
 SDKSRC = $(SDK)/public.sdk/source/vst2.x
 
 # Here are a few conditional compilation directives which you can set.
@@ -132,19 +130,18 @@ uninstall:
 # package over an existing Faust installation.
 
 install-faust:
-#	test -d $(DESTDIR)$(bindir) || mkdir -p $(DESTDIR)$(bindir)
-#	cp faust2faustvst $(DESTDIR)$(bindir)
+	test -d $(DESTDIR)$(bindir) || mkdir -p $(DESTDIR)$(bindir)
+	cp faust2faustvst $(DESTDIR)$(bindir)
 	test -d $(DESTDIR)$(faustlibdir) || mkdir -p $(DESTDIR)$(faustlibdir)
 	cp faustvst.cpp $(DESTDIR)$(faustlibdir)
 
 uninstall-faust:
-#	rm -f $(DESTDIR)$(bindir)/faust2faustvst
+	rm -f $(DESTDIR)$(bindir)/faust2faustvst
 	rm -f $(DESTDIR)$(faustlibdir)/faustvst.cpp
 
 # Roll a distribution tarball.
 
-#DISTFILES = COPYING COPYING.LESSER Makefile README.md config.guess faust2faustvst *.cpp examples/*.dsp examples/*.lib examples/*.h
-DISTFILES = COPYING COPYING.LESSER Makefile README.md config.guess *.cpp examples/*.dsp examples/*.lib examples/*.h
+DISTFILES = COPYING COPYING.LESSER Makefile README.md config.guess faust2faustvst *.cpp examples/*.dsp examples/*.lib examples/*.h
 
 dist:
 	rm -rf $(dist)
@@ -156,5 +153,5 @@ dist:
 
 distcheck: dist
 	tar xfj $(dist).tar.bz2
-	cd $(dist) && make SDK=../../vstsdk && make install DESTDIR=./BUILD
+	cd $(dist) && make SDK=$(abspath $(SDK)) && make install DESTDIR=./BUILD
 	rm -rf $(dist)

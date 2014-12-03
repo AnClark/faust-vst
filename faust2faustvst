@@ -1,0 +1,96 @@
+#! /bin/bash
+
+#set -x
+
+# defaults (these can be changed with the options listed below)
+FAUST_META=1
+FAUST_MIDICC=1
+NVOICES=0
+
+# Set SDK to the location where you keep your VST SDK files
+[ -z $SDK ] && SDK=/usr/local/src/vstsdk
+SDKSRC=$SDK/public.sdk/source/vst2.x
+
+PROCARCH="-fPIC"
+dllext=".so"
+CXXFLAGS="-O3 -march=native -mfpmath=sse -msse -msse2 -msse3 -ffast-math -ftree-vectorize"
+
+# We recognize the following special options here:
+# -nometa: ignore metadata (author information etc.) from the Faust source
+# -nomidicc: plugin doesn't process MIDI control data
+# -nvoices N: number of synth voices (VSTi only; arg must be an integer)
+
+for ((i=1;i<$#+1;i++)); do
+    p=${!i}
+    if [ $p = "-omp" ]; then
+    	: ignore
+    elif [ $p = "-icc" ]; then
+	CXX=icpc
+    	CXXFLAGS="-O3 -xHost -ftz -fno-alias -fp-model fast=2"
+    elif [ $p = "-osc" ]; then
+    	: ignore
+    elif [ $p = "-httpd" ]; then
+    	: ignore
+    elif [ $p = "-nometa" ]; then
+    	FAUST_META=0
+    elif [ $p = "-nomidicc" ]; then
+    	FAUST_MIDICC=0
+    elif [ $p = "-nvoices" ]; then
+	(( i++ ))
+    	NVOICES=${!i}
+    elif [ $p = "-arch32" ]; then
+	PROCARCH="-m32 -L/usr/lib32"
+    elif [ $p = "-arch64" ]; then
+	PROCARCH="-m64 -fPIC"
+    elif [ $p = "-osx" ]; then
+	CXXFLAGS="-O3 -march=native -mfpmath=sse -msse -msse2 -msse3 -ffast-math -ftree-vectorize -I/opt/local/include"
+	dllext=".dylib"
+    elif [ ${p:0:1} = "-" ]; then
+	OPTIONS="$OPTIONS $p"
+    elif [[ -f "$p" ]]; then
+	FILES="$FILES $p"
+    else
+	OPTIONS="$OPTIONS $p"
+    fi
+done
+
+FILES=( $FILES )
+if [ ${#FILES[@]} = 0 ]; then
+    echo "$0: no filename specified" >&2
+    exit 1
+elif [ ${#FILES[@]} -gt 1 ]; then
+    echo "$0: multiple filenames specified" >&2
+    exit 1
+fi
+
+arch=faustvst.cpp
+dspname=${FILES[0]}
+SRCDIR=$(dirname "$dspname")
+
+clsname=`basename "$dspname" .dsp`
+cppname="$clsname.cpp"
+soname="$clsname$dllext"
+tmpdir=`mktemp -d /tmp/faust2faustvst.XXXXXX`
+
+CXX=g++
+CPPFLAGS="-DFAUST_META=$FAUST_META -DFAUST_MIDICC=$FAUST_MIDICC -DNVOICES=$NVOICES -I$SDK -I$SDKSRC -D__cdecl="
+
+# Extra SDK modules needed to build a working plugin.
+main=vstplugmain.cpp
+afx=audioeffect.cpp
+afxx=audioeffectx.cpp
+sdksrc="$SDKSRC/$main $SDKSRC/$afx $SDKSRC/$afxx"
+
+# Create the temp directory.
+mkdir -p $tmpdir
+# Compile the Faust module.
+faust -i -a $arch $OPTIONS "$dspname" -o "$tmpdir/$cppname"
+$CXX -shared $CXXFLAGS $FAUSTTOOLSFLAGS $PROCARCH $CPPFLAGS $sdksrc "$tmpdir/$cppname" -o "$tmpdir/$soname"
+
+# copy down the bundle
+rm -rf "$SRCDIR/$soname"
+cp -r "$tmpdir/$soname" "$SRCDIR"
+# Clean up.
+rm -rf $tmpdir
+# Print the name of the generated plugin.
+echo "$SRCDIR/$soname;"

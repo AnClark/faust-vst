@@ -41,7 +41,7 @@ SDKSRC = $(SDK)/public.sdk/source/vst2.x
 
 # Default compilation flags.
 CFLAGS = -O3
-# Use this for debugging output instead.
+# Use this for debugging code instead.
 #CFLAGS = -g -O2
 
 # Shared library suffix and compiler option to create a shared library.

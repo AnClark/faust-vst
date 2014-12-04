@@ -109,8 +109,7 @@ features, in particular: automatic controller mappings (observing the
 `midi:ctrl` attributes in the Faust source), multi-channel voice assignment
 for polyphonic instrument plugins (VSTi), as well as support for pitch bend
 range and master tuning (RPN) messages and MIDI Tuning Standard (MTS)
-messages; the latter requires a VST host which can send sysex data to
-plugins. The `unit` attribute is also supported, but note that none of the
+messages. The `unit` attribute is also supported, but note that none of the
 LV2-specific attributes of the faust-lv2 architecture are implemented right
 now.
 
@@ -161,19 +160,31 @@ If both are specified then the command line option takes precedence. Using
 effect plugin without MIDI note processing. This is also the default if none
 of these options are specified.
 
-System-Specific Notes
+Notes and Limitations
 ---------------------
 
 On Mac OS X, the Makefile and the faust2faustvst script will create universal
 (32 and 64 bit Intel) binaries by default, which should be usable with both 32
 and 64 bit VST hosts. You can change this by adjusting the `ARCH` variable in
-the Makefile and the script accordingly. E.g., setting `ARCH=-arch i386` will
-create 32 bit Intel binaries only, while `ARCH=` creates binaries for the
-default architecture of your system (usually 64 bit these days). Note that
-some 64 bit hosts such as Reaper will work just fine with 32 bit VST plugins,
-whereas others such as Tracktion may require 64 bit plugins for the 64 bit
-version of the program. Going with the fat binaries should have you covered in
-either case.
+the Makefile and the script accordingly. E.g., setting `ARCH` to `-arch i386`
+will create 32 bit Intel binaries only, while leaving `ARCH` empty creates
+binaries for the default architecture of your system (usually 64 bit these
+days). Note that some 64 bit hosts such as Reaper will work just fine with 32
+bit VST plugins, whereas others such as Tracktion may require 64 bit plugins
+for the 64 bit version of the program. Going with the fat binaries should have
+you covered in either case.
+
+The MTS (MIDI Tuning Standard) support requires a VST host which can send
+sysex data to plugins. Unfortunately, not all that many VST hosts seem to
+implement this feature at this time. In fact, on Linux none of the DAWs I
+tried (Ardour3, Qtractor, Tracktion) feeds the MTS sysex messages into VST
+plugins, so if you need the tuning capabilities, we recommend using faust-lv2
+there if your DAW supports LV2 plugins (Ardour3 and Qtractor do, Tracktion
+doesn't). For Mac and Windows, Reaper is a nice and relatively inexpensive DAW
+which is known to properly handle MTS sysex messages. Note that we also offer
+a program which can generate MTS messages in a suitable format (1- or 2-byte
+octave-based tunings) as either Sysex (.syx) or MIDI (.mid) files, please
+check <https://bitbucket.org/agraef/sclsyx> for details.
 
 [1]: http://www.steinberg.net/en/company/developers.html
 [2]: http://faust.grame.fr/

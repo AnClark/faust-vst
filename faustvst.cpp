@@ -1217,6 +1217,8 @@ void VSTWrapper::setProgram(VstInt32 prog)
   curProgram = prog;
   memcpy(plugin->ports, defprog, plugin->n_in*sizeof(float));
   plugin->poly = plugin->maxvoices/2;
+  // Some hosts may require this to force a GUI update of the parameters.
+  updateDisplay();
 }
 
 void VSTWrapper::setProgramName(const char* name)

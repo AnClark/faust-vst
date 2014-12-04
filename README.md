@@ -45,7 +45,7 @@ system that seems appropriate. For instance:
 
     unzip vstsdk360_22_11_2013_build_100.zip
     mv 'VST3 SDK' vstsdk
-    sudo mv vstsdk /usr/local/src/vstsdk
+    sudo mv vstsdk /usr/local/src
 
 The name of the zip file and the package directory will of course vary with
 the version of the SDK you downloaded; at the time of this writing, VST SDK
@@ -129,7 +129,8 @@ like the following to the beginning of your Faust source:
     nvoices "16";
 
 If both are specified then the command line option takes precedence. Using
-`-nvoices 0` creates an ordinary effect plugin without MIDI note processing.
+`-nvoices 0` (or `nvoices "0";` in the Faust source) creates an ordinary
+effect plugin without MIDI note processing.
 
 [1]: http://www.steinberg.net/en/company/developers.html
 [2]: http://faust.grame.fr/

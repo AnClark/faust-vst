@@ -1,7 +1,7 @@
 faust-vst
 =========
 
-Albert Gräf <aggraef@gmail.com>, 2014-12-2
+Albert Gräf <aggraef@gmail.com>, 2014-12-04
 
 This project provides a [VST][1] plugin architecture for the [Faust][2]
 programming language. The package contains the Faust architecture,
@@ -12,16 +12,19 @@ generic GNU Makefile for compiling and installing the plugins.
 Please note that the faustvst.cpp architecture provided here is different from
 Yan Michalevsky's vst.cpp architecture included in the latest Faust versions.
 faust-vst is a separate development based on the [faust-lv2][3] project, and
-as such it offers the same set of features as faust-lv2. In particular,
-faust-vst uses a voice allocation algorithm which properly deals with
-multi-channel MIDI data, and it provides automatic MIDI controller assignments
-and MTS tuning capabilities. Faust sources that have been developed for
-faust-lv2 should just take a recompile to make them work in exactly the same
-way in any VST host (the MTS support requires a VST host which can send sysex
-data to plugins, however).
+as such it offers the same set of features as faust-lv2. Except for the
+portamento feature in the vst.cpp architecture, which isn't supported in
+faust-vst right now, the capabilities provided by our architecture are a
+strict superset of those of the vst.cpp architecture. In particular, faust-vst
+uses a voice assignment algorithm which properly deals with multi-channel MIDI
+data, and it provides automatic MIDI controller assignments and MTS tuning
+capabilities. Faust sources that have been developed for faust-lv2 should just
+take a recompile to make them work in exactly the same way in any VST host
+(the MTS support requires a VST host which can send sysex data to plugins,
+however).
 
-At present, faust-vst has been tested and is known to work on Linux. Support
-for Mac OS X and Windows should be a piece of cake, though, and will hopefully
+At present, faust-vst has been tested and is known to work on Linux and Mac OS
+X. Support for Windows should be a piece of cake, though, and will hopefully
 be available in the near future.
 
 Prerequisites
@@ -72,10 +75,15 @@ whatever directory you want to use:
 
     cp examples/*.so ~/.vst
 
-Please note that this step is optional. The included plugins are just examples
-which you can use to test that everything compiles ok and to check for
-compatibility of the plugins with your VST host. You may want to skip this
-step if you're only interested in compiling your own plugins.
+Note that in the case of Mac OS X, the plugins are actually bundles (i.e.,
+directories) with the `.vst` extension which need to be copied using `-R`:
+
+    cp -R examples/*.vst ~/Library/Audio/Plug-Ins/VST
+
+Please note that in any case this step is optional. The included plugins are
+just examples which you can use to test that everything compiles ok and to
+check for compatibility of the plugins with your VST host. You may want to
+skip this step if you're only interested in compiling your own plugins.
 
 For compiling your own Faust sources, only the faustvst.cpp architecture and
 the faust2faustvst helper script are needed. There's a `make install-faust`
@@ -98,7 +106,7 @@ Usage
 As already mentioned, the present implementation is based on the code of the
 [faust-lv2][3] plugin architecture and provides pretty much the same set of
 features, in particular: automatic controller mappings (observing the
-`midi:ctrl` attributes in the Faust source), multi-channel voice allocation
+`midi:ctrl` attributes in the Faust source), multi-channel voice assignment
 for polyphonic instrument plugins (VSTi), as well as support for pitch bend
 range and master tuning (RPN) messages and MIDI Tuning Standard (MTS)
 messages; the latter requires a VST host which can send sysex data to
@@ -109,15 +117,25 @@ now.
 To compile your own plugins, you can use the provided faustvst.cpp
 architecture with the Faust compiler like this: `faust -a faustvst.cpp
 mydsp.dsp`. You then need to compile the resulting C++ source and link it
-against some SDK modules to obtain a working plugin. To facilitate this
-process, we recommend using either the provided Makefile or the faust2faustvst
-helper script. For instance:
+against some SDK modules to obtain a working plugin. The necessary steps are
+all rather straightforward, but vary with the target platform (e.g., on OS X
+you need to create a proper Mach-O bundle) and require some knowledge about
+compiler and linker options as well as some VST-specific requirements.
+
+To facilitate this process, we recommend using either the provided Makefile or
+the faust2faustvst helper script. The Makefile can be used either as a
+starting point for your own Faust-VST plugin projects, or you can just drop
+your Faust sources into the examples directory to have them built along with
+the other examples.
+
+The faust2faustvst script is invoked as follows:
 
     faust2faustvst amp.dsp
 
 This will compile `amp.dsp` using the Faust compiler and then invoke the C++
 compiler on the resulting C++ code to create a working plugin. All the
-necessary compiler and linker options are provided automatically.
+necessary compiler and linker options are provided automatically, and on OS X
+the script also takes care of creating a proper VST bundle.
 
 In contrast to faust-lv2, the same architecture is used for both effect (VST)
 and instrument (VSTi) plugins. For the latter, you may define the `NVOICES`
@@ -142,6 +160,20 @@ If both are specified then the command line option takes precedence. Using
 `-nvoices 0` (or `nvoices "0";` in the Faust source) creates an ordinary
 effect plugin without MIDI note processing. This is also the default if none
 of these options are specified.
+
+System-Specific Notes
+---------------------
+
+On Mac OS X, the Makefile and the faust2faustvst script will create universal
+(32 and 64 bit Intel) binaries by default, which should be usable with both 32
+and 64 bit VST hosts. You can change this by adjusting the `ARCH` variable in
+the Makefile and the script accordingly. E.g., setting `ARCH=-arch i386` will
+create 32 bit Intel binaries only, while `ARCH=` creates binaries for the
+default architecture of your system (usually 64 bit these days). Note that
+some 64 bit hosts such as Reaper will work just fine with 32 bit VST plugins,
+whereas others such as Tracktion may require 64 bit plugins for the 64 bit
+version of the program. Going with the fat binaries should have you covered in
+either case.
 
 [1]: http://www.steinberg.net/en/company/developers.html
 [2]: http://faust.grame.fr/

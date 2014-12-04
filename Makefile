@@ -56,9 +56,12 @@ EXE = .exe
 DLL = .dll
 endif
 ifneq "$(findstring -darwin,$(host))" ""
-# OSX (untested)
-DLL = .dylib
-shared = -dynamiclib
+# OSX
+DLL = .vst
+# Build fat binaries which will work with both 32 and 64 bit hosts.
+ARCH = -arch i386 -arch x86_64
+EXTRA_CFLAGS += $(ARCH)
+shared = -bundle $(ARCH)
 # MacPorts compatibility
 EXTRA_CFLAGS += -I/opt/local/include
 endif
@@ -109,22 +112,31 @@ $(afxx).o: $(SDKSRC)/$(afxx).cpp
 %.o: %.cpp $(arch).cpp
 	$(CXX) $(CXXFLAGS) $(EXTRA_CFLAGS) -c -o $@ $<
 
+ifeq "$(DLL)" ".vst"
+# This rule builds an OS X bundle.
+%.vst: %.o $(extra_objects)
+	mkdir -p $@/Contents/MacOS
+	printf '%s' 'BNDL????' > $@/Contents/PkgInfo
+	sed -e 's?@name@?$(notdir $(@:.vst=))?g;s?@version@?1.0.0?g' < Info.plist.in > $@/Contents/Info.plist
+	$(CXX) $(shared) $^ -o $@/Contents/MacOS/$(notdir $(@:.vst=))
+else
 %$(DLL): %.o $(extra_objects)
 	$(CXX) $(shared) $^ -o $@
+endif
 
 # Clean.
 
 clean:
-	rm -f $(cppsource) $(objects) $(extra_objects) $(plugins)
+	rm -Rf $(cppsource) $(objects) $(extra_objects) $(plugins)
 
 # Install.
 
 install:
 	test -d $(DESTDIR)$(vstlibdir) || mkdir -p $(DESTDIR)$(vstlibdir)
-	cp $(plugins) $(DESTDIR)$(vstlibdir)
+	cp -Rf $(plugins) $(DESTDIR)$(vstlibdir)
 
 uninstall:
-	rm -f $(addprefix $(DESTDIR)$(vstlibdir)/, $(notdir $(plugins)))
+	rm -Rf $(addprefix $(DESTDIR)$(vstlibdir)/, $(notdir $(plugins)))
 
 # Use this to install the Faust architectures and scripts included in this
 # package over an existing Faust installation.
@@ -141,7 +153,7 @@ uninstall-faust:
 
 # Roll a distribution tarball.
 
-DISTFILES = COPYING COPYING.LESSER Makefile README.md config.guess faust2faustvst *.cpp examples/*.dsp examples/*.lib examples/*.h
+DISTFILES = COPYING COPYING.LESSER Makefile README.md config.guess faust2faustvst faustvst.cpp Info.plist.in examples/*.dsp examples/*.lib examples/*.h
 
 dist:
 	rm -rf $(dist)

@@ -114,22 +114,24 @@ are provided automatically.
 
 In contrast to faust-lv2, the same architecture is used for both effect (VST)
 and instrument (VSTi) plugins. For the latter, you may define the `NVOICES`
-macro at build time in the same manner as with the lv2synth.cpp architecture,
-or you may specify the maximum number of voices with the `nvoices` meta key in
-the Faust source.
+macro at build time in the same manner as with the lv2synth.cpp architecture.
+Moreover, it is also possible to specify the maximum number of voices with the
+`nvoices` meta key in the Faust source.
 
 Please check examples/organ.dsp in the distributed sources for a simple
 example of an instrument plugin. The rules for creating the voice controls
 `freq`, `gain` and `gate` are the same as for the lv2synth.cpp architecture.
 To compile an instrument plugin with the faust2faustvst script, you can either
-specify the maximum polyphony with the `-nvoices` option, or add a definition
-like the following to the beginning of your Faust source:
+specify the maximum polyphony with the `-nvoices` option, e.g.:
+`faust2faustvst -nvoices 16 organ.dsp`. Or you may add a definition like the
+following to the beginning of your Faust source:
 
     nvoices "16";
 
 If both are specified then the command line option takes precedence. Using
 `-nvoices 0` (or `nvoices "0";` in the Faust source) creates an ordinary
-effect plugin without MIDI note processing.
+effect plugin without MIDI note processing. This is also the default if none
+of these options are specified.
 
 [1]: http://www.steinberg.net/en/company/developers.html
 [2]: http://faust.grame.fr/

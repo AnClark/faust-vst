@@ -11,14 +11,14 @@ generic GNU Makefile for compiling and installing the plugins.
 
 Please note that the faustvst.cpp architecture provided here is different from
 Yan Michalevsky's vst.cpp architecture included in the latest Faust versions.
-faust-vst is a separate development based on the faust-lv2 project, and as
-such it offers the same set of features as faust-lv2. In particular, faust-vst
-uses a voice allocation algorithm which properly deals with multi-channel MIDI
-data, and it provides automatic MIDI controller assignments and MTS tuning
-capabilities. Faust sources that have been developed for faust-lv2 should just
-take a recompile to make them work in exactly the same way in any VST host
-(the MTS support requires a VST host which can send sysex data to plugins,
-however).
+faust-vst is a separate development based on the [faust-lv2][3] project, and
+as such it offers the same set of features as faust-lv2. In particular,
+faust-vst uses a voice allocation algorithm which properly deals with
+multi-channel MIDI data, and it provides automatic MIDI controller assignments
+and MTS tuning capabilities. Faust sources that have been developed for
+faust-lv2 should just take a recompile to make them work in exactly the same
+way in any VST host (the MTS support requires a VST host which can send sysex
+data to plugins, however).
 
 At present, faust-vst has been tested and is known to work on Linux. Support
 for Mac OS X and Windows should be a piece of cake, though, and will hopefully
@@ -73,7 +73,7 @@ whatever directory you want to use:
     cp examples/*.so ~/.vst
 
 Please note that this step is optional. The included plugins are just examples
-which you can use to test that everything vompiles ok and to check for
+which you can use to test that everything compiles ok and to check for
 compatibility of the plugins with your VST host. You may want to skip this
 step if you're only interested in compiling your own plugins.
 
@@ -98,10 +98,9 @@ comprehensive set of features, in particular: automatic controller mappings
 (observing the `midi:ctrl` attributes in the Faust source), multi-channel
 voice allocation for polyphonic instrument plugins (VSTi), as well as support
 for pitch bend range and master tuning (RPN) messages and MIDI Tuning Standard
-(MTS) messages (alas, at least on Linux many VST hosts lack support for
-sending MTS sysex messages to VST plugins right now). The `unit` attribute is
-also supported, but note that none of the LV2-specific attributes of the
-faust-lv2 architecture are implemented right now.
+(sysex) messages. The `unit` attribute is also supported, but note that none
+of the LV2-specific attributes of the faust-lv2 architecture are implemented
+right now.
 
 To compile your own plugins, you can use the provided faustvst.cpp
 architecture with the Faust compiler like this: `faust -a faustvst.cpp
@@ -113,11 +112,11 @@ using the Faust compiler and then invoke the C++ compiler on the resulting C++
 code to create a working plugin. All the necessary compiler and linker options
 are provided automatically.
 
-In contrast to faust-lv2, the same architecture is used for both effect and
-instrument plugins. For the latter, you may define the `NVOICES` macro at
-build time in the same manner as with the lv2synth.cpp architecture, or you
-may specify the maximum number of voices with the `nvoices` meta key in the
-Faust source.
+In contrast to faust-lv2, the same architecture is used for both effect (VST)
+and instrument (VSTi) plugins. For the latter, you may define the `NVOICES`
+macro at build time in the same manner as with the lv2synth.cpp architecture,
+or you may specify the maximum number of voices with the `nvoices` meta key in
+the Faust source.
 
 Please check examples/organ.dsp in the distributed sources for a simple
 example of an instrument plugin. The rules for creating the voice controls

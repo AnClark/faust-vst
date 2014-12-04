@@ -43,9 +43,9 @@ download a zip archive with the latest SDK version there. There's no standard
 location for these files, so you just copy them to any directory on your
 system that seems appropriate. For instance:
 
-   unzip vstsdk360_22_11_2013_build_100.zip
-   mv 'VST3 SDK' vstsdk
-   sudo mv vstsdk /usr/local/src/vstsdk
+    unzip vstsdk360_22_11_2013_build_100.zip
+    mv 'VST3 SDK' vstsdk
+    sudo mv vstsdk /usr/local/src/vstsdk
 
 The name of the zip file and the package directory will of course vary with
 the version of the SDK you downloaded; at the time of this writing, VST SDK

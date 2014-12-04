@@ -852,16 +852,16 @@ public:
   virtual bool getOutputProperties(VstInt32 index,
 				   VstPinProperties* properties);
 
-  virtual bool getEffectName (char* name);
-  virtual bool getVendorString (char* text);
-  virtual bool getProductString (char* text);
-  virtual VstInt32 getVendorVersion ();
-  virtual VstInt32 canDo (char* text);
+  virtual bool getEffectName(char* name);
+  virtual bool getVendorString(char* text);
+  virtual bool getProductString(char* text);
+  virtual VstInt32 getVendorVersion();
+  virtual VstInt32 canDo(char* text);
 
   // XXXFIXME: should this be 16 to indicate that we process all MIDI channels?
-  virtual VstInt32 getNumMidiInputChannels ()  { return 1; }
+  virtual VstInt32 getNumMidiInputChannels()  { return 1; }
   // XXXTODO: MIDI controller output??
-  virtual VstInt32 getNumMidiOutputChannels ()  { return 0; }
+  virtual VstInt32 getNumMidiOutputChannels()  { return 0; }
 
 private:
   VSTPlugin *plugin;
@@ -1434,6 +1434,9 @@ VstInt32 VSTWrapper::canDo(char *text)
 {
   if (strcmp(text, "receiveVstEvents") == 0) return 1;
   if (strcmp(text, "receiveVstMidiEvent") == 0) return 1;
+  // This may convince some VST hosts to send us sysex events (seems to be
+  // supported by some Bitwig versions at least).
+  if (strcmp(text, "receiveVstSysexEvent") == 0) return 1;
   return -1;
 }
 

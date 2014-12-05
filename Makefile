@@ -24,6 +24,10 @@ SDKSRC = $(SDK)/public.sdk/source/vst2.x
 #DEFINES += -DFAUST_META=0
 # Disable MIDI controller processing.
 #DEFINES += -DFAUST_MIDICC=0
+# Disable the tuning control (synth only).
+#DEFINES += -DFAUST_MTS=0
+# Number of voices (synth: polyphony).
+#DEFINES += -DNVOICES=16
 # Debug recognized MIDI controller metadata.
 #DEFINES += -DDEBUG_META=1
 # Debug incoming MIDI messages.
@@ -36,8 +40,6 @@ SDKSRC = $(SDK)/public.sdk/source/vst2.x
 #DEFINES += -DDEBUG_RPN=1
 # Debug MTS messages (synth: octave/scale tuning).
 #DEFINES += -DDEBUG_MTS=1
-# Number of voices (synth: polyphony).
-#DEFINES += -DNVOICES=16
 
 # Default compilation flags.
 CFLAGS = -O3

@@ -423,8 +423,22 @@ VST_EXPORT AEffect * main(audioMasterCallback audioMaster)
    a monophonic synthesizer, and 0 for a simple effect plugin. If NVOICES
    isn't defined at compile time then the number of voices of an instrument
    plugin can also be set with the global "nvoices" meta data key in the Faust
-   source. */
+   source. This setting also adds a special "polyphony" control to the plugin
+   which can be used to dynamically adjust the actual number of voices in the
+   range 1..NVOICES. */
 //#define NVOICES 16
+
+/* This enables a special "tuning" control in a VSTi plugin which lets you
+   select the MTS tuning to be used for the synth. In order to use this, you
+   just drop some sysex (.syx) files with MTS octave-based tunings in 1- or
+   2-byte format into the ~/.fautvst/tuning directory (these can be generated
+   with the author's sclsyx program, https://bitbucket.org/agraef/sclsyx).
+   The control will only be shown if any .syx files were found at startup. 0
+   selects the default tuning (standard 12-tone equal temperament), i>0 the
+   tuning in the ith sysex file (in alphabetic order). */
+#ifndef FAUST_MTS
+#define FAUST_MTS 1
+#endif
 
 /* This allows various manifest data to be generated from the corresponding
    metadata (author, name, description, license) in the Faust source. */
@@ -496,7 +510,7 @@ struct VSTPlugin {
   mydsp **dsp;		// the dsps
   VSTUI **ui;		// their Faust interface descriptions
   int n_in, n_out;	// number of input and output control ports
-  int poly;		// polyphony port
+  int poly, tuning;	// polyphony and tuning ports
   int *ctrls;		// Faust ui elements (indices into ui->elems)
   float *ports;		// corresponding VST data
   float *portvals;	// cached port data from the last run
@@ -531,6 +545,7 @@ struct VSTPlugin {
     nvoices = maxvoices;
     n_in = n_out = 0;
     poly = maxvoices/2;
+    tuning = 0;
     freq = gain = gate = -1;
     for (int i = 0; i < 16; i++) {
       rpn_msb[i] = rpn_lsb[i] = 0x7f;
@@ -817,6 +832,113 @@ struct VSTPlugin {
   }
 };
 
+#if FAUST_MTS
+
+// Helper classes to read and store MTS tunings.
+
+#include <vector>
+
+struct MTSTuning {
+  char *name; // name of the tuning
+  int len; // length of sysex data in bytes
+  unsigned char *data; // sysex data
+  MTSTuning() : name(0), len(0), data(0) {}
+  MTSTuning& operator=(const MTSTuning &t)
+  {
+    if (this == &t) return *this;
+    if (name) free(name); if (data) free(data);
+    name = 0; data = 0; len = t.len;
+    if (t.name) {
+      name = strdup(t.name); assert(name);
+    }
+    if (t.data) {
+      data = (unsigned char*)malloc(len); assert(data);
+      memcpy(data, t.data, len);
+    }
+    return *this;
+  }
+  MTSTuning(const MTSTuning& t) : name(0), len(0), data(0)
+  { *this = t; }
+  MTSTuning(const char *filename);
+  ~MTSTuning()
+  { if (name) free(name); if (data) free(data); }
+};
+
+#include <sys/stat.h>
+
+MTSTuning::MTSTuning(const char *filename)
+{
+  FILE *fp = fopen(filename, "rb");
+  name = 0; len = 0; data = 0;
+  if (!fp) return;
+  struct stat st;
+  if (fstat(fileno(fp), &st)) return;
+  len = st.st_size;
+  data = (unsigned char*)calloc(len, 1);
+  if (!data) {
+    len = 0; fclose(fp);
+    return;
+  }
+  assert(len > 0);
+  if (fread(data, 1, len, fp) < len) {
+    free(data); len = 0; data = 0; fclose(fp);
+    return;
+  }
+  fclose(fp);
+  // Do some basic sanity checks.
+  if (data[0] != 0xf0 || data[len-1] != 0xf7 || // not a sysex message
+      data[1] != 0x7e && data[1] != 0x7f || data[3] != 8 || // not MTS
+      !((len == 21 && data[4] == 8) ||
+	(len == 33 && data[4] == 9))) { // no 1- or 2-byte tuning
+    free(data); len = 0; data = 0;
+    return;
+  }
+  // Name of the tuning is the basename of the file, without the trailing .syx
+  // suffix.
+  string nm = filename;
+  size_t p = nm.rfind(".syx");
+  if (p != string::npos) nm.erase(p);
+  p = nm.rfind('/');
+  if (p != string::npos) nm.erase(0, p+1);
+  name = strdup(nm.c_str());
+  assert(name);
+}
+
+struct MTSTunings {
+  vector<MTSTuning> tuning;
+  MTSTunings() {}
+  MTSTunings(const char *path);
+};
+
+#include <sys/types.h>
+#include <dirent.h>
+
+static bool compareByName(const MTSTuning &a, const MTSTuning &b)
+{
+  return strcmp(a.name, b.name) < 0;
+}
+
+MTSTunings::MTSTunings(const char *path)
+{
+  DIR *dp = opendir(path);
+  if (!dp) return;
+  struct dirent *d;
+  while ((d = readdir(dp))) {
+    string nm = d->d_name;
+    if (nm.length() > 4 && nm.substr(nm.length()-4) == ".syx") {
+      string pathname = path;
+      pathname += "/";
+      pathname += nm;
+      MTSTuning t(pathname.c_str());
+      if (t.data) tuning.push_back(t);
+    }
+  }
+  closedir(dp);
+  // sort found tunings by name
+  sort(tuning.begin(), tuning.end(), compareByName);
+}
+
+#endif
 
 #include "audioeffectx.h"
 
@@ -864,12 +986,21 @@ public:
   // output for passive Faust controls in the future.
   virtual VstInt32 getNumMidiOutputChannels()  { return 0; }
 
+#if FAUST_MTS
+  static MTSTunings *mts;
+#endif
+
 private:
   VSTPlugin *plugin;
   Meta meta;
   char progname[kVstMaxProgNameLen+1];
   float *defprog;
+  void mts_sysex(uint8_t *data, int sz);
 };
+
+#if FAUST_MTS
+MTSTunings *VSTWrapper::mts = 0;
+#endif
 
 // Create a "unique" VST plugin ID using Murmur2 hashes. This can't possibly
 // avoid all collisions, but will hopefully be good enough.
@@ -966,6 +1097,32 @@ static int numVoices()
 #endif
 }
 
+#if FAUST_MTS
+static MTSTunings *load_sysex_data()
+{
+  if (!VSTWrapper::mts) {
+    string mts_path;
+    // Look for FAUSTVST_HOME. If that isn't set, try HOME/.faustvst. If that
+    // isn't set either, just assume a faustvst subdir of the cwd.
+    const char *home = getenv("FAUSTVST_HOME");
+    if (home)
+      mts_path = home;
+    else {
+      home = getenv("HOME");
+      if (home) {
+	mts_path = home;
+	mts_path += "/.faustvst";
+      } else
+	mts_path = "faustvst";
+    }
+    // MTS tunings are looked for in this subdir.
+    mts_path += "/tuning";
+    VSTWrapper::mts = new MTSTunings(mts_path.c_str());
+  }
+  return VSTWrapper::mts;
+}
+#endif
+
 // The AudioEffectX constructor needs the number of controls of the dsp, so we
 // create a dummy instance of the UI data to retrieve that information.
 static int numControls()
@@ -975,7 +1132,13 @@ static int numControls()
   VSTUI ui(num_voices);
   dsp.buildUserInterface(&ui);
   // reserve one extra port for the polyphony control (instruments only)
-  return ui.nports+(num_voices>0);
+  int num_extra = (num_voices>0);
+#if FAUST_MTS
+  // likewise for the tuning control
+  if (num_voices>0 && load_sysex_data())
+    num_extra += (VSTWrapper::mts->tuning.size()>0);
+#endif
+  return ui.nports+num_extra;
 }
 
 VSTWrapper::VSTWrapper(audioMasterCallback audioMaster)
@@ -985,6 +1148,9 @@ VSTWrapper::VSTWrapper(audioMasterCallback audioMaster)
   const char *effectName = meta.get("name", "mydsp");
   const int num_voices = numVoices();
   plugin = new VSTPlugin(num_voices);
+#if FAUST_MTS
+  if (num_voices>0) load_sysex_data();
+#endif
   // Get the initial sample rate from the VST host.
   plugin->rate = getSampleRate();
   // Initialize the Faust DSPs.
@@ -1008,9 +1174,9 @@ VSTWrapper::VSTWrapper(audioMasterCallback audioMaster)
   setProgramName("Default");
   // The ports are numbered as follows: 0..k-1 are the control ports, then
   // come the n audio input ports, then the m audio output ports, and finally
-  // the midi input port and the polyphony control. XXXFIXME: This layout was
-  // inherited from the LV2 architecture and should probably be adjusted for
-  // VST.
+  // the midi input port and the polyphony and tuning controls. XXXFIXME: This
+  // layout was inherited from the LV2 architecture and should probably be
+  // adjusted for VST.
   int k = plugin->ui[0]->nports, p = 0, q = 0;
   int n = plugin->dsp[0]->getNumInputs(), m = plugin->dsp[0]->getNumOutputs();
   // Allocate tables for the control elements and their ports.
@@ -1218,6 +1384,14 @@ void VSTWrapper::setProgram(VstInt32 prog)
   curProgram = prog;
   memcpy(plugin->ports, defprog, plugin->n_in*sizeof(float));
   plugin->poly = plugin->maxvoices/2;
+  plugin->tuning = 0;
+  if (plugin->vd) {
+    memset(plugin->vd->tuning, 0, sizeof(plugin->vd->tuning));
+#if DEBUG_MTS
+    fprintf(stderr,
+	    "octave-tuning-default (chan 1-16): equal temperament\n");
+#endif
+  }
   // Some hosts may require this to force a GUI update of the parameters.
   updateDisplay();
 }
@@ -1252,8 +1426,13 @@ void VSTWrapper::getParameterName(VstInt32 index, char *label)
     int j = plugin->ctrls[index];
     assert(index == plugin->ui[0]->elems[j].port);
     vst_strncpy(label, plugin->ui[0]->elems[j].label, 32);
-  } else if (index == k && plugin->maxvoices > 0)
+  } else if (index == k && plugin->maxvoices > 0) {
     strcpy(label, "polyphony");
+#if FAUST_MTS
+  } else if (index == k+1 && mts && mts->tuning.size() > 0) {
+    strcpy(label, "tuning");
+#endif
+  }
 }
 
 void VSTWrapper::getParameterLabel(VstInt32 index, char *label)
@@ -1276,8 +1455,15 @@ void VSTWrapper::getParameterDisplay(VstInt32 index, char *text)
     int j = plugin->ctrls[index];
     assert(index == plugin->ui[0]->elems[j].port);
     sprintf(text, "%0.5g", plugin->ports[index]);
-  } else if (index == k && plugin->maxvoices > 0)
+  } else if (index == k && plugin->maxvoices > 0) {
     sprintf(text, "%d voices", plugin->poly);
+#if FAUST_MTS
+  } else if (index == k+1 && mts && mts->tuning.size() > 0) {
+    sprintf(text, "%d %s", plugin->tuning,
+	    plugin->tuning>0?mts->tuning[plugin->tuning-1].name:
+	    "default");
+#endif
+  }
 }
 
 float VSTWrapper::getParameter(VstInt32 index)
@@ -1294,6 +1480,10 @@ float VSTWrapper::getParameter(VstInt32 index)
       return (plugin->ports[index]-min)/(max-min);
   } else if (index == k && plugin->maxvoices > 0) {
     return (float)plugin->poly/(float)plugin->maxvoices;
+#if FAUST_MTS
+  } else if (index == k+1 && mts && mts->tuning.size() > 0) {
+    return (float)plugin->tuning/(float)mts->tuning.size();
+#endif
   } else
     return 0.0f;
 }
@@ -1331,6 +1521,24 @@ void VSTWrapper::setParameter(VstInt32 index, float value)
   } else if (index == k && plugin->maxvoices > 0) {
     plugin->poly = (int)quantize((value*plugin->maxvoices), 1);
     if (plugin->poly <= 0) plugin->poly = 1;
+#if FAUST_MTS
+  } else if (index == k+1 && mts && mts->tuning.size() > 0) {
+    int tuning = (int)quantize((value*mts->tuning.size()), 1);
+    if (tuning != plugin->tuning) {
+      plugin->tuning = tuning;
+      if (tuning > 0) {
+	mts_sysex(mts->tuning[tuning-1].data,
+		  mts->tuning[tuning-1].len);
+      } else {
+	// reset to default tuning (equal temperament)
+	memset(plugin->vd->tuning, 0, sizeof(plugin->vd->tuning));
+#if DEBUG_MTS
+      fprintf(stderr,
+	      "octave-tuning-default (chan 1-16): equal temperament\n");
+#endif
+      }
+    }
+#endif
   }
 }
 
@@ -1363,6 +1571,23 @@ bool VSTWrapper::string2parameter(VstInt32 index, char *text)
     if (val <= 0) val = 1;
     if (val > plugin->maxvoices) val = plugin->maxvoices;
     plugin->poly = val;
+#if FAUST_MTS
+  } else if (index == k+1 && mts && mts->tuning.size() > 0) {
+    int val = atoi(text);
+    if (val < 0) val = 0;
+    if (val > mts->tuning.size()) val = mts->tuning.size();
+    plugin->tuning = val;
+    if (plugin->tuning > 0) {
+      mts_sysex(mts->tuning[plugin->tuning-1].data,
+		mts->tuning[plugin->tuning-1].len);
+    } else {
+      memset(plugin->vd->tuning, 0, sizeof(plugin->vd->tuning));
+#if DEBUG_MTS
+      fprintf(stderr,
+	      "octave-tuning-default (chan 1-16): equal temperament\n");
+#endif
+    }
+#endif
   } else
     return false;
   return true;
@@ -1598,6 +1823,84 @@ static float ctrlval(const ui_elem_t &el, uint8_t v)
 }
 #endif
 
+void VSTWrapper::mts_sysex(uint8_t *data, int sz)
+{
+#if DEBUG_MIDI
+  fprintf(stderr, "midi sysex (%d bytes):", sz);
+  for (int i = 0; i < sz; i++)
+    fprintf(stderr, " 0x%0x", data[i]);
+  fprintf(stderr, "\n");
+#endif
+  if (data[0] == 0xf0) {
+    // Skip over the f0 and f7 status bytes in case they are included in the
+    // dump.
+    data++; sz--;
+    if (data[sz-1] == 0xf7) sz--;
+  }
+  if ((data[0] == 0x7e || data[0] == 0x7f) && data[2] == 8) {
+    // MIDI tuning standard
+    bool realtime = data[0] == 0x7f;
+    if ((sz == 19 && data[3] == 8) ||
+	(sz == 31 && data[3] == 9)) {
+      // MTS scale/octave tuning 1- or 2-byte form
+      bool onebyte = data[3] == 8;
+      unsigned chanmsk = (data[4]<<14) | (data[5]<<7) | data[6];
+      for (int i = 0; i < 12; i++) {
+	float t;
+	if (onebyte)
+	  t = (data[i+7]-64)/100.0;
+	else
+	  t = (((data[2*i+7]<<7)|data[2*i+8])-8192)/8192.0;
+	for (uint8_t ch = 0; ch < 16; ch++)
+	  if (chanmsk & (1<<ch))
+	    plugin->vd->tuning[ch][i] = t;
+      }
+      if (realtime) {
+	for (uint8_t ch = 0; ch < 16; ch++)
+	  if (chanmsk & (1<<ch)) {
+	    // update running voices on this channel
+	    plugin->update_voices(ch);
+	  }
+      }
+#if DEBUG_MTS
+      fprintf(stderr, "octave-tuning-%s (chan ",
+	      realtime?"realtime":"non-realtime");
+      bool first = true;
+      for (uint8_t i = 0; i < 16; )
+	if (chanmsk & (1<<i)) {
+	  uint8_t j;
+	  for (j = i+1; j < 16 && (chanmsk&(1<<j)); )
+	    j++;
+	  if (first)
+	    first = false;
+	  else
+	    fprintf(stderr, ",");
+	  if (j > i+1)
+	    fprintf(stderr, "%u-%u", i+1, j);
+	  else
+	    fprintf(stderr, "%u", i+1);
+	  i = j;
+	} else
+	  i++;
+      fprintf(stderr, "):");
+      if (onebyte) {
+	for (int i = 7; i < 19; i++) {
+	  int val = data[i];
+	  fprintf(stderr, " %d", val-64);
+	}
+      } else {
+	for (int i = 7; i < 31; i++) {
+	  int val = data[i++] << 7;
+	  val |= data[i];
+	  fprintf(stderr, " %g", ((double)val-8192.0)/8192.0*100.0);
+	}
+      }
+      fprintf(stderr, "\n");
+#endif
+    }
+  }
+}
+
 VstInt32 VSTWrapper::processEvents(VstEvents* events)
 {
   // Process incoming MIDI events.
@@ -1803,87 +2106,15 @@ VstInt32 VSTWrapper::processEvents(VstEvents* events)
     } else if (events->events[i]->type == kVstSysExType) {
       // NOTE: Sysex messages are currently used for the MTS tuning messages.
       // Unfortunately, this event type still doesn't seem to be supported by
-      // many VST hosts, so we may have to provide a different way for feeding
-      // this kind of data to the plugin in the future.
+      // many VST hosts, so we also provide an alternative way for feeding
+      // this kind of data to the plugin by means of the extra "tuning"
+      // control.
       VstMidiSysexEvent* ev = (VstMidiSysexEvent*)events->events[i];
       int sz = ev->dumpBytes;
       uint8_t *data = (uint8_t*)ev->sysexDump;
       bool is_instr = plugin->maxvoices > 0;
       if (!is_instr || !data || sz < 2) continue;
-#if DEBUG_MIDI
-      fprintf(stderr, "midi sysex (%d bytes):", sz);
-      for (int i = 0; i < sz; i++)
-	fprintf(stderr, " 0x%0x", data[i]);
-      fprintf(stderr, "\n");
-#endif
-      if (data[0] == 0xf0) {
-	// Skip over the f0 and f7 status bytes in case they are included in
-	// the dump.
-	data++; sz--;
-	if (data[sz-1] == 0xf7) sz--;
-      }
-      if ((data[0] == 0x7e || data[0] == 0x7f) && data[2] == 8) {
-	// MIDI tuning standard
-	bool realtime = data[0] == 0x7f;
-	if ((sz == 19 && data[3] == 8) ||
-	    (sz == 31 && data[3] == 9)) {
-	  // MTS scale/octave tuning 1- or 2-byte form
-	  bool onebyte = data[3] == 8;
-	  unsigned chanmsk = (data[4]<<14) | (data[5]<<7) | data[6];
-	  for (int i = 0; i < 12; i++) {
-	    float t;
-	    if (onebyte)
-	      t = (data[i+7]-64)/100.0;
-	    else
-	      t = (((data[2*i+7]<<7)|data[2*i+8])-8192)/8192.0;
-	    for (uint8_t ch = 0; ch < 16; ch++)
-	      if (chanmsk & (1<<ch))
-		plugin->vd->tuning[ch][i] = t;
-	  }
-	  if (realtime) {
-	    for (uint8_t ch = 0; ch < 16; ch++)
-	      if (chanmsk & (1<<ch)) {
-		// update running voices on this channel
-		plugin->update_voices(ch);
-	      }
-	  }
-#if DEBUG_MTS
-	  fprintf(stderr, "octave-tuning-%s (chan ",
-		  realtime?"realtime":"non-realtime");
-	  bool first = true;
-	  for (uint8_t i = 0; i < 16; )
-	    if (chanmsk & (1<<i)) {
-	      uint8_t j;
-	      for (j = i+1; j < 16 && (chanmsk&(1<<j)); )
-		j++;
-	      if (first)
-		first = false;
-	      else
-		fprintf(stderr, ",");
-	      if (j > i+1)
-		fprintf(stderr, "%u-%u", i+1, j);
-	      else
-		fprintf(stderr, "%u", i+1);
-	      i = j;
-	    } else
-	      i++;
-	  fprintf(stderr, "):");
-	  if (onebyte) {
-	    for (int i = 7; i < 19; i++) {
-	      int val = data[i];
-	      fprintf(stderr, " %d", val-64);
-	    }
-	  } else {
-	    for (int i = 7; i < 31; i++) {
-	      int val = data[i++] << 7;
-	      val |= data[i];
-	      fprintf(stderr, " %g", ((double)val-8192.0)/8192.0*100.0);
-	    }
-	  }
-	  fprintf(stderr, "\n");
-#endif
-	}
-      }
+      mts_sysex(data, sz);
       break;
     } else {
       fprintf(stderr, "%s: unknown event type %d\n",

@@ -21,17 +21,20 @@ data, and it provides automatic MIDI controller assignments and MTS tuning
 capabilities. Faust sources that have been developed for faust-lv2 should just
 take a recompile to make them work in exactly the same way in any VST host.
 
-At present, faust-vst has been tested and is known to work on Linux and Mac OS
-X. Support for Windows should be a piece of cake, though, and will hopefully
-be added in the near future. Also note that on any supported platform, the
-faustvst.cpp architecture always produces *native* VST plugins which should be
-usable as is with any native VST host, and do *not* require any special VST
-"bridges" (such as the Wine-based bridges commonly used to run Windows VSTs on
-Linux). To improve cross-platform compatibility, faustvst.cpp doesn't include
-any GUI code either; it completely relies on the VST host for rendering
-control GUIs. If you want prettier GUIs then you'll have to program them
+At present, faust-vst has been tested and is known to work on recent Linux and
+Mac OS X versions. Support for Windows should be a piece of cake, though, and
+will hopefully be added in the near future. To improve cross-platform
+compatibility, faustvst.cpp doesn't include any GUI code; it completely relies
+on the VST host for rendering control GUIs. This keeps things simple, but it
+also means that if you want prettier GUIs then you'll have to code them
 yourself. Also, support for Faust's external OSC and HTTPD control facilities
 is still on the TODO list at this time.
+
+The architecture has been given some fairly thorough testing using various
+open-source and commercial DAWs on both Linux and Mac OS X, among them
+Ardour3, Bitwig, Qtractor, Reaper and Tracktion. It appears to work fine with
+each of these, but if you notice any bugs then please head over to
+<https://bitbucket.org/agraef/faust-vst> and report them there.
 
 Prerequisites
 -------------
@@ -195,18 +198,15 @@ architecture also provides an additional `tuning` control which allows you to
 choose a tuning from a collection of MTS sysex files determined at load
 time. (This feature can also be disabled with a corresponding compilation
 option, please check the Makefile for details.) You then just need to drop
-some MTS sysex (.syx) files into the ~/.faustvst/tuning folder. (Instead of
-~/.faustvst you can also pick a different faustvst "home" folder by setting
-the FAUSTVST_HOME environment variable accordingly.)
-
-If the ~/.faustvst/tuning folder is present and contains some MTS sysex files
-in the right format, then the `tuning` control becomes available on all
-faust-vst instrument plugins which have been compiled with this option. The
-control usually takes the form of a slider which shows the current value (both
-the basename of the tuning file and the corresponding numeric value). The
-tunings are numbered in alphabetic order; a slider value of 0 denotes the
-default tuning (equal temperament). Changing the slider value in the control
-GUI provided by your VST host adjusts the tuning accordingly.
+some MTS sysex (.syx) files into the ~/.faustvst/tuning folder. If this folder
+is present and contains some MTS sysex files in the right format, then the
+`tuning` control becomes available on all faust-vst instrument plugins which
+have been compiled with this option. The control usually takes the form of a
+slider which shows the current value (both the basename of the tuning file and
+the corresponding numeric value). The tunings are numbered in alphabetic order
+starting at 1; a slider value of 0 denotes the default tuning (equal
+temperament). Changing the slider value in the control GUI provided by your
+VST host adjusts the tuning accordingly.
 
 This controller-based method for changing the tuning will of course become
 rather unwieldy if you need to work with a large number of different tunings.
@@ -214,8 +214,14 @@ On the other hand, it also offers the advantage that the tuning becomes an
 automatable parameter which can be recorded and played back by hosts which
 provide control automation (your favorite DAW probably does). Note that the
 amount of data in the octave-based tunings is rather small and the data is
-stored in RAM at load time, so that changing tunings in real-time is not an
-expensive operation.
+stored in main memory at load time, so that changing tunings in real-time is
+not an expensive operation.
+
+**NOTE:** Instead of ~/.faustvst you can also name a different faustvst "home"
+folder by setting the FAUSTVST_HOME environment variable accordingly. In
+addition, on Mac OS X the ~/Library/FaustVST/Tuning folder will also be
+searched for tunings if ~/.faustvst/tuning doesn't exist or contains no valid
+sysex files.
 
 [1]: http://www.steinberg.net/en/company/developers.html
 [2]: http://faust.grame.fr/

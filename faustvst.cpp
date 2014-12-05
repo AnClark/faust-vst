@@ -1118,6 +1118,17 @@ static MTSTunings *load_sysex_data()
     // MTS tunings are looked for in this subdir.
     mts_path += "/tuning";
     VSTWrapper::mts = new MTSTunings(mts_path.c_str());
+#ifdef __APPLE__
+    if (!VSTWrapper::mts || VSTWrapper::mts->tuning.size() == 0) {
+      home = getenv("HOME");
+      if (home) {
+	if (VSTWrapper::mts) delete VSTWrapper::mts;
+	mts_path = home;
+	mts_path += "/Library/FaustVST/Tuning";
+	VSTWrapper::mts = new MTSTunings(mts_path.c_str());
+      }
+    }
+#endif
   }
   return VSTWrapper::mts;
 }

@@ -23,7 +23,15 @@ take a recompile to make them work in exactly the same way in any VST host.
 
 At present, faust-vst has been tested and is known to work on Linux and Mac OS
 X. Support for Windows should be a piece of cake, though, and will hopefully
-be added in the near future.
+be added in the near future. Also note that on any supported platform, the
+faustvst.cpp architecture always produces *native* VST plugins which should be
+usable as is with any native VST host, and do *not* require any special VST
+"bridges" (such as the Wine-based bridges commonly used to run Windows VSTs on
+Linux). To improve cross-platform compatibility, faustvst.cpp doesn't include
+any GUI code either; it completely relies on the VST host for rendering
+control GUIs. If you want prettier GUIs then you'll have to program them
+yourself. Also, support for Faust's external OSC and HTTPD control facilities
+is still on the TODO list at this time.
 
 Prerequisites
 -------------

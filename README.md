@@ -19,13 +19,11 @@ strict superset of those of the vst.cpp architecture. In particular, faust-vst
 uses a voice assignment algorithm which properly deals with multi-channel MIDI
 data, and it provides automatic MIDI controller assignments and MTS tuning
 capabilities. Faust sources that have been developed for faust-lv2 should just
-take a recompile to make them work in exactly the same way in any VST host
-(the MTS support requires a VST host which can send sysex data to plugins,
-however).
+take a recompile to make them work in exactly the same way in any VST host.
 
 At present, faust-vst has been tested and is known to work on Linux and Mac OS
 X. Support for Windows should be a piece of cake, though, and will hopefully
-be available in the near future.
+be added in the near future.
 
 Prerequisites
 -------------
@@ -100,6 +98,17 @@ staging directory with the `DESTDIR` variable as usual. There's a bunch of
 other variables which let you set various compilation options and installation
 paths; please check the Makefile for details.
 
+Also note that on Mac OS X, the Makefile and the faust2faustvst script will
+create universal (32 and 64 bit Intel) binaries by default, which should be
+usable with both 32 and 64 bit VST hosts. You can change this by adjusting the
+`ARCH` variable in the Makefile and the script accordingly. E.g., setting
+`ARCH` to something like `"-arch i386"` will create 32 bit Intel binaries
+only, while leaving `ARCH` empty creates binaries for the default architecture
+of your system (usually 64 bit these days). While some 64 bit hosts such as
+Reaper will work just fine with 32 bit VST plugins, others such as Tracktion
+may require 64 bit plugins for the 64 bit version of the program. Going with
+the fat binaries should have you covered in either case.
+
 Usage
 -----
 
@@ -160,31 +169,45 @@ If both are specified then the command line option takes precedence. Using
 effect plugin without MIDI note processing. This is also the default if none
 of these options are specified.
 
-Notes and Limitations
----------------------
+MTS Support
+-----------
 
-On Mac OS X, the Makefile and the faust2faustvst script will create universal
-(32 and 64 bit Intel) binaries by default, which should be usable with both 32
-and 64 bit VST hosts. You can change this by adjusting the `ARCH` variable in
-the Makefile and the script accordingly. E.g., setting `ARCH` to `-arch i386`
-will create 32 bit Intel binaries only, while leaving `ARCH` empty creates
-binaries for the default architecture of your system (usually 64 bit these
-days). Note that some 64 bit hosts such as Reaper will work just fine with 32
-bit VST plugins, whereas others such as Tracktion may require 64 bit plugins
-for the 64 bit version of the program. Going with the fat binaries should have
-you covered in either case.
+As with faust-lv2, VST instruments created with the faustvst.cpp architecture
+can be retuned using sysex messages in MTS (MIDI Tuning Standard) format. At
+present, the supported formats are 1- or 2-byte octave-based tunings, please
+check the faust-lv2 documentation for details on this. We also offer a program
+which generates MTS messages in these formats from human-readable scale
+definitions in the Scala format and stores them as Sysex (.syx) or MIDI (.mid)
+files. You can find this program at <https://bitbucket.org/agraef/sclsyx>.
 
-The MTS (MIDI Tuning Standard) support requires a VST host which can send
-sysex data to plugins. Unfortunately, not all that many VST hosts seem to
-implement this feature at this time. In fact, on Linux none of the DAWs I
-tried (Ardour3, Qtractor, Tracktion) feeds the MTS sysex messages into VST
-plugins, so if you need the tuning capabilities, we recommend using faust-lv2
-there if your DAW supports LV2 plugins (Ardour3 and Qtractor do, Tracktion
-doesn't). For Mac and Windows, Reaper is a nice and relatively inexpensive DAW
-which is known to properly handle MTS sysex messages. Note that we also offer
-a program which can generate MTS messages in a suitable format (1- or 2-byte
-octave-based tunings) as either Sysex (.syx) or MIDI (.mid) files, please
-check <https://bitbucket.org/agraef/sclsyx> for details.
+To use this, your VST host needs to be able to receive and/or store sysex
+messages and pass them on to VSTi plugins. Unfortunately, not all VST hosts
+implement this feature at this time. As a remedy, the faustvst.cpp
+architecture also provides an additional `tuning` control which allows you to
+choose a tuning from a collection of MTS sysex files determined at load
+time. (This feature can also be disabled with a corresponding compilation
+option, please check the Makefile for details.) You then just need to drop
+some MTS sysex (.syx) files into the ~/.faustvst/tuning folder. (Instead of
+~/.faustvst you can also pick a different faustvst "home" folder by setting
+the FAUSTVST_HOME environment variable accordingly.)
+
+If the ~/.faustvst/tuning folder is present and contains some MTS sysex files
+in the right format, then the `tuning` control becomes available on all
+faust-vst instrument plugins which have been compiled with this option. The
+control usually takes the form of a slider which shows the current value (both
+the basename of the tuning file and the corresponding numeric value). The
+tunings are numbered in alphabetic order; a slider value of 0 denotes the
+default tuning (equal temperament). Changing the slider value in the control
+GUI provided by your VST host adjusts the tuning accordingly.
+
+This controller-based method for changing the tuning will of course become
+rather unwieldy if you need to work with a large number of different tunings.
+On the other hand, it also offers the advantage that the tuning becomes an
+automatable parameter which can be recorded and played back by hosts which
+provide control automation (your favorite DAW probably does). Note that the
+amount of data in the octave-based tunings is rather small and the data is
+stored in RAM at load time, so that changing tunings in real-time is not an
+expensive operation.
 
 [1]: http://www.steinberg.net/en/company/developers.html
 [2]: http://faust.grame.fr/

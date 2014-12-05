@@ -887,7 +887,7 @@ MTSTuning::MTSTuning(const char *filename)
   fclose(fp);
   // Do some basic sanity checks.
   if (data[0] != 0xf0 || data[len-1] != 0xf7 || // not a sysex message
-      data[1] != 0x7e && data[1] != 0x7f || data[3] != 8 || // not MTS
+      (data[1] != 0x7e && data[1] != 0x7f) || data[3] != 8 || // not MTS
       !((len == 21 && data[4] == 8) ||
 	(len == 33 && data[4] == 9))) { // no 1- or 2-byte tuning
     free(data); len = 0; data = 0;

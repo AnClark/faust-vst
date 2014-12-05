@@ -858,9 +858,10 @@ public:
   virtual VstInt32 getVendorVersion();
   virtual VstInt32 canDo(char* text);
 
-  // XXXFIXME: should this be 16 to indicate that we process all MIDI channels?
-  virtual VstInt32 getNumMidiInputChannels()  { return 1; }
-  // XXXTODO: MIDI controller output??
+  // We process all MIDI channels on input.
+  virtual VstInt32 getNumMidiInputChannels()  { return 16; }
+  // No MIDI output for now. XXXTODO: We might want to do MIDI controller
+  // output for passive Faust controls in the future.
   virtual VstInt32 getNumMidiOutputChannels()  { return 0; }
 
 private:

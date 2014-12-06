@@ -8,9 +8,14 @@ FAUST_MIDICC=1
 FAUST_MTS=1
 NVOICES=0
 
-# Set SDK to the location where you keep your VST SDK files
-[ -z $SDK ] && SDK=/usr/local/src/vstsdk
-SDKSRC=$SDK/public.sdk/source/vst2.x
+# These should be detected properly at build time, but you can also set them
+# to alternative locations using the SDK and SDKSRC environment variables.
+# Set this to the location where you keep your VST SDK files.
+[ -z $SDK ] && SDK=@SDK@
+# SDKSRC should point to the SDK source files (vstplugmain.cpp et al).
+# Usually these are either directly under $SDK or in the
+# public.sdk/source/vst2.x subdirectory.
+[ -z $SDKSRC ] && SDKSRC=@SDKSRC@
 
 PROCARCH="-fPIC"
 dllext=".so"

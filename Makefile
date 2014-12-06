@@ -13,11 +13,18 @@ libdir = $(prefix)/lib
 vstlibdir = $(libdir)/vst
 faustlibdir = $(libdir)/faust
 
-# We assume that the SDK files are located at /usr/local/src/vstsdk. If you
-# keep them elsewhere then you'll have to adjust the SDK variable below
-# accordingly.
-SDK = /usr/local/src/vstsdk
-SDKSRC = $(SDK)/public.sdk/source/vst2.x
+# Check for some common locations of the SDK files. This falls back to
+# /usr/local/src/vstsdk if none of these are found. In that case, or if make
+# picks the wrong location, you can also set the SDK variable explicitly.
+sdkpaths = /usr/local/include /usr/local/src /usr/include /usr/src
+sdkpat = vst* VST*
+#SDK = /usr/local/src/vstsdk
+SDK = $(firstword $(wildcard $(foreach path,$(sdkpaths),$(addprefix $(path)/,$(sdkpat)))) /usr/src/vstsdk)
+# Steinberg's distribution zip has the SDK source files in the
+# public.sdk/source/vst2.x subdirectory, while some Linux packages (e.g.,
+# steinberg-vst on the AUR) keep them directly under $(SDK).
+#SDKSRC = $(SDK)/public.sdk/source/vst2.x
+SDKSRC = $(firstword $(patsubst %/,%,$(dir $(wildcard $(addsuffix vstplugmain.cpp,$(SDK)/ $(SDK)/public.sdk/source/vst2.x/)))) $(SDK)/public.sdk/source/vst2.x)
 
 # Here are a few conditional compilation directives which you can set.
 # Disable Faust metadata.
@@ -95,7 +102,13 @@ EXTRA_CFLAGS += -I$(SDK) -I$(SDKSRC) -Iexamples -D__cdecl= $(DEFINES)
 
 .PHONY: all clean install uninstall install-faust uninstall-faust dist distcheck
 
-all: $(plugins)
+all: faust2faustvst $(plugins)
+
+# This sets the proper SDK paths in the faust2faustvst script, detected at
+# build time.
+faust2faustvst: faust2faustvst.in
+	sed -e 's?@SDK@?$(SDK)?g;s?@SDKSRC@?$(SDKSRC)?g' < $< > $@
+	chmod a+x $@
 
 # Generic build rules.
 
@@ -129,11 +142,11 @@ endif
 # Clean.
 
 clean:
-	rm -Rf $(cppsource) $(objects) $(extra_objects) $(plugins)
+	rm -Rf faust2faustvst $(cppsource) $(objects) $(extra_objects) $(plugins)
 
 # Install.
 
-install:
+install: $(plugins)
 	test -d $(DESTDIR)$(vstlibdir) || mkdir -p $(DESTDIR)$(vstlibdir)
 	cp -Rf $(plugins) $(DESTDIR)$(vstlibdir)
 
@@ -143,7 +156,7 @@ uninstall:
 # Use this to install the Faust architectures and scripts included in this
 # package over an existing Faust installation.
 
-install-faust:
+install-faust: faust2faustvst
 	test -d $(DESTDIR)$(bindir) || mkdir -p $(DESTDIR)$(bindir)
 	cp faust2faustvst $(DESTDIR)$(bindir)
 	test -d $(DESTDIR)$(faustlibdir) || mkdir -p $(DESTDIR)$(faustlibdir)
@@ -155,7 +168,7 @@ uninstall-faust:
 
 # Roll a distribution tarball.
 
-DISTFILES = COPYING COPYING.LESSER Makefile README.md config.guess faust2faustvst faustvst.cpp Info.plist.in examples/*.dsp examples/*.lib examples/*.h
+DISTFILES = COPYING COPYING.LESSER Makefile README.md config.guess faust2faustvst.in faustvst.cpp Info.plist.in examples/*.dsp examples/*.lib examples/*.h
 
 dist:
 	rm -rf $(dist)

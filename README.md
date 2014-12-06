@@ -76,26 +76,34 @@ location for these files, so you just copy them to any directory on your
 system that seems appropriate. For instance:
 
     unzip vstsdk360_22_11_2013_build_100.zip
-    mv 'VST3 SDK' vstsdk
-    sudo mv vstsdk /usr/local/src
+    sudo mkdir -p /usr/local/src
+    sudo mv 'VST3 SDK' /usr/local/src/vstsdk
 
 The name of the zip file and the package directory will of course vary with
 the version of the SDK you downloaded; at the time of this writing, VST SDK
 3.6.0 is the current version.
 
-The distributed Makefile and the faust2faustvst script assume that you have
-the SDK files installed in /usr/local/src/vstsdk, as indicated above. If you
-keep them elsewhere then you'll have to adjust the SDK variable in these files
-accordingly.
+The faust-vst Makefile will look for the SDK files in some common locations
+(including the /usr/local/src/vstsdk path suggested above) and configure
+itself and the faust2faustvst script accordingly at build time. If it gets
+this wrong or cannot find the files then you can also set the location
+explicitly when invoking make:
+
+    make SDK=/path/to/the/SDK
+
+You should specify an absolute path there; the Makefile will most likely work
+with a relative path as well, but then you'll always have to run
+faust2faustvst from the same directory.
 
 Installation
 ------------
 
-Make sure that you have the VST SDK installed in the appropriate location,
-then run `make` and `make install`. The latter will install the compiled
-plugins under /usr/local/lib/vst by default; you need root access or
-administrator privileges to be able to do that. Instead, you can also install
-the plugins in your personal VST plugin folder (e.g., ~/.vst on Linux):
+Make sure that you have the VST SDK installed in an appropriate location, as
+discussed above, then run `make` and `make install`. The latter will install
+the compiled plugins under /usr/local/lib/vst by default; you need root access
+or administrator privileges to be able to do that. Instead, you can also
+install the plugins in your personal VST plugin folder (e.g., ~/.vst on
+Linux):
 
     make install vstlibdir=~/.vst
 
@@ -109,6 +117,9 @@ directories) with the `.vst` extension which need to be copied using `-R`:
 
     cp -R examples/*.vst ~/Library/Audio/Plug-Ins/VST
 
+But usually running just `make install` with the appropriate `vstlibdir`
+should do the trick on any supported platform.
+
 Please note that in any case this step is optional. The included plugins are
 just examples which you can use to test that everything compiles ok and to
 check for compatibility of the plugins with your VST host. You may want to
@@ -118,10 +129,10 @@ For compiling your own Faust sources, only the faustvst.cpp architecture and
 the faust2faustvst helper script are needed. There's a `make install-faust`
 target which installs these items in the appropriate directories; the
 faust2faustvst script goes into /usr/local/bin and the faustvst.cpp
-architecture into /usr/local/lib/faust by default. As faust-vst isn't included
-in the Faust distribution yet, this make target provides you with an easy way
-to add the architecture and the helper script to your existing Faust
-installation.
+architecture into /usr/local/lib/faust by default. At the time of this
+writing, faust-vst isn't included in the Faust distribution yet, so this make
+target provides you with an easy way to add the architecture and the helper
+script to your existing Faust installation.
 
 Both `make install` and `make install-faust` let you adjust the installation
 prefix with the `prefix` make variable, and package maintainers can specify a

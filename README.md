@@ -36,6 +36,26 @@ Ardour3, Bitwig, Qtractor, Reaper and Tracktion. It appears to work fine with
 each of these, but if you notice any bugs then please head over to
 <https://bitbucket.org/agraef/faust-vst> and report them there.
 
+Copying
+-------
+
+Like most other Faust architectures, faust-vst is licensed under the LGPL,
+please check the included COPYING and COPYING.LESSER files for details. This
+implies, in particular, that the architecture can be used in proprietary
+software only if you also provide a means which lets users build your plugin
+with a suitably modified version of the architecture. (The only practical way
+to do this right now is to provide the Faust source of your plugin. If this
+doesn't suit you then feel free to contact me for obtaining a commercial
+license, or have a look at Yan Michalevsky's vst.cpp architecture which is
+licensed under a more liberal BSD-style license.)
+
+Note that in order to create a working VST plugin using the faustvst.cpp
+architecture, you'll also need Steinberg's VST SDK (see below). This is
+proprietary software, so if you publish a plugin that is created using this
+architecture then you'll also have to comply with Steinberg's license terms.
+Please check the documentation accompanying the VST SDK distribution for
+details.
+
 Prerequisites
 -------------
 

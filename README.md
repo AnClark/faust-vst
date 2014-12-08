@@ -229,8 +229,8 @@ architecture also provides an additional `tuning` control which allows you to
 choose a tuning from a collection of MTS sysex files determined at load
 time. (This feature can also be disabled with a corresponding compilation
 option, please check the Makefile for details.) You then just need to drop
-some MTS sysex (.syx) files into the ~/.faustvst/tuning folder. If this folder
-is present and contains some MTS sysex files in the right format, then the
+some MTS sysex (.syx) files into the ~/.faust/tuning folder. If this folder is
+present and contains some MTS sysex files in the right format, then the
 `tuning` control becomes available on all faust-vst instrument plugins which
 have been compiled with this option. The control usually takes the form of a
 slider which shows the current value (both the basename of the tuning file and
@@ -248,11 +248,10 @@ amount of data in the octave-based tunings is rather small and the data is
 stored in main memory at load time, so that changing tunings in real-time is
 not an expensive operation.
 
-**NOTE:** Instead of ~/.faustvst you can also name a different faustvst "home"
-folder by setting the FAUSTVST_HOME environment variable accordingly. In
-addition, on Mac OS X the ~/Library/FaustVST/Tuning folder will also be
-searched for tunings if ~/.faustvst/tuning doesn't exist or contains no valid
-sysex files.
+**NOTE:** Instead of ~/.faust you can also name a different "home" folder by
+setting the FAUST_HOME environment variable accordingly. In addition, on Mac
+OS X the ~/Library/Faust/Tuning folder will also be searched for tunings if
+~/.faust/tuning doesn't exist or contains no valid sysex files.
 
 [1]: http://www.steinberg.net/en/company/developers.html
 [2]: http://faust.grame.fr/

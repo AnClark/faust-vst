@@ -678,37 +678,37 @@ struct FaustPlugin {
   }
 
 #if FAUST_MTS
-  // Load a collection of sysex files with MTS tunings in ~/.faustvst/tuning.
+  // Load a collection of sysex files with MTS tunings in ~/.faust/tuning.
   static MTSTunings *mts;
 
   static MTSTunings *load_sysex_data()
   {
     if (!mts) {
       string mts_path;
-      // Look for FAUSTVST_HOME. If that isn't set, try HOME/.faustvst. If that
-      // isn't set either, just assume a faustvst subdir of the cwd.
-      const char *home = getenv("FAUSTVST_HOME");
+      // Look for FAUST_HOME. If that isn't set, try $HOME/.faust. If HOME
+      // isn't set either, just assume a .faust subdir of the cwd.
+      const char *home = getenv("FAUST_HOME");
       if (home)
 	mts_path = home;
       else {
 	home = getenv("HOME");
 	if (home) {
 	  mts_path = home;
-	  mts_path += "/.faustvst";
+	  mts_path += "/.faust";
 	} else
-	  mts_path = "faustvst";
+	  mts_path = ".faust";
       }
       // MTS tunings are looked for in this subdir.
       mts_path += "/tuning";
       mts = new MTSTunings(mts_path.c_str());
 #ifdef __APPLE__
       if (!mts || mts->tuning.size() == 0) {
-	// Also check ~/Library/FaustVST/Tuning on the Mac.
+	// Also check ~/Library/Faust/Tuning on the Mac.
 	home = getenv("HOME");
 	if (home) {
 	  if (mts) delete mts;
 	  mts_path = home;
-	  mts_path += "/Library/FaustVST/Tuning";
+	  mts_path += "/Library/Faust/Tuning";
 	  mts = new MTSTunings(mts_path.c_str());
 	}
       }

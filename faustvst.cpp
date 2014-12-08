@@ -188,7 +188,7 @@ struct ui_elem_t {
   float init, min, max, step;
 };
 
-class VSTUI : public UI
+class FaustUI : public UI
 {
 public:
   bool is_instr;
@@ -196,8 +196,8 @@ public:
   ui_elem_t *elems;
   map< int, list<strpair> > metadata;
 
-  VSTUI(int maxvoices = 0);
-  virtual ~VSTUI();
+  FaustUI(int maxvoices = 0);
+  virtual ~FaustUI();
 
 protected:
   void add_elem(ui_elem_type_t type, const char *label = NULL);
@@ -227,19 +227,19 @@ public:
   virtual void declare(float* zone, const char* key, const char* value);
 };
 
-VSTUI::VSTUI(int maxvoices)
+FaustUI::FaustUI(int maxvoices)
 {
   is_instr = maxvoices>0;
   nelems = nports = 0;
   elems = NULL;
 }
 
-VSTUI::~VSTUI()
+FaustUI::~FaustUI()
 {
   if (elems) free(elems);
 }
 
-void VSTUI::declare(float* zone, const char* key, const char* value)
+void FaustUI::declare(float* zone, const char* key, const char* value)
 {
   map< int, list<strpair> >::iterator it = metadata.find(nelems);
   if (it != metadata.end())
@@ -248,7 +248,7 @@ void VSTUI::declare(float* zone, const char* key, const char* value)
     metadata[nelems] = list<strpair>(1, strpair(key, value));
 }
 
-inline void VSTUI::add_elem(ui_elem_type_t type, const char *label)
+inline void FaustUI::add_elem(ui_elem_type_t type, const char *label)
 {
   ui_elem_t *elems1 = (ui_elem_t*)realloc(elems, (nelems+1)*sizeof(ui_elem_t));
   if (elems1)
@@ -271,7 +271,7 @@ static bool is_voice_ctrl(const char *label);
 
 #define portno(label) ((is_instr && is_voice_ctrl(label))?-1:nports++)
 
-inline void VSTUI::add_elem(ui_elem_type_t type, const char *label, float *zone)
+inline void FaustUI::add_elem(ui_elem_type_t type, const char *label, float *zone)
 {
   ui_elem_t *elems1 = (ui_elem_t*)realloc(elems, (nelems+1)*sizeof(ui_elem_t));
   if (elems1)
@@ -290,7 +290,7 @@ inline void VSTUI::add_elem(ui_elem_type_t type, const char *label, float *zone)
   nelems++;
 }
 
-inline void VSTUI::add_elem(ui_elem_type_t type, const char *label, float *zone,
+inline void FaustUI::add_elem(ui_elem_type_t type, const char *label, float *zone,
 			     float init, float min, float max, float step)
 {
   ui_elem_t *elems1 = (ui_elem_t*)realloc(elems, (nelems+1)*sizeof(ui_elem_t));
@@ -310,7 +310,7 @@ inline void VSTUI::add_elem(ui_elem_type_t type, const char *label, float *zone,
   nelems++;
 }
 
-inline void VSTUI::add_elem(ui_elem_type_t type, const char *label, float *zone,
+inline void FaustUI::add_elem(ui_elem_type_t type, const char *label, float *zone,
 			     float min, float max)
 {
   ui_elem_t *elems1 = (ui_elem_t*)realloc(elems, (nelems+1)*sizeof(ui_elem_t));
@@ -330,32 +330,32 @@ inline void VSTUI::add_elem(ui_elem_type_t type, const char *label, float *zone,
   nelems++;
 }
 
-void VSTUI::addButton(const char* label, float* zone)
+void FaustUI::addButton(const char* label, float* zone)
 { add_elem(UI_BUTTON, label, zone); }
-void VSTUI::addCheckButton(const char* label, float* zone)
+void FaustUI::addCheckButton(const char* label, float* zone)
 { add_elem(UI_CHECK_BUTTON, label, zone); }
-void VSTUI::addVerticalSlider(const char* label, float* zone, float init, float min, float max, float step)
+void FaustUI::addVerticalSlider(const char* label, float* zone, float init, float min, float max, float step)
 { add_elem(UI_V_SLIDER, label, zone, init, min, max, step); }
-void VSTUI::addHorizontalSlider(const char* label, float* zone, float init, float min, float max, float step)
+void FaustUI::addHorizontalSlider(const char* label, float* zone, float init, float min, float max, float step)
 { add_elem(UI_H_SLIDER, label, zone, init, min, max, step); }
-void VSTUI::addNumEntry(const char* label, float* zone, float init, float min, float max, float step)
+void FaustUI::addNumEntry(const char* label, float* zone, float init, float min, float max, float step)
 { add_elem(UI_NUM_ENTRY, label, zone, init, min, max, step); }
 
-void VSTUI::addHorizontalBargraph(const char* label, float* zone, float min, float max)
+void FaustUI::addHorizontalBargraph(const char* label, float* zone, float min, float max)
 { add_elem(UI_H_BARGRAPH, label, zone, min, max); }
-void VSTUI::addVerticalBargraph(const char* label, float* zone, float min, float max)
+void FaustUI::addVerticalBargraph(const char* label, float* zone, float min, float max)
 { add_elem(UI_V_BARGRAPH, label, zone, min, max); }
 
-void VSTUI::openTabBox(const char* label)
+void FaustUI::openTabBox(const char* label)
 { add_elem(UI_T_GROUP, label); }
-void VSTUI::openHorizontalBox(const char* label)
+void FaustUI::openHorizontalBox(const char* label)
 { add_elem(UI_H_GROUP, label); }
-void VSTUI::openVerticalBox(const char* label)
+void FaustUI::openVerticalBox(const char* label)
 { add_elem(UI_V_GROUP, label); }
-void VSTUI::closeBox()
+void FaustUI::closeBox()
 { add_elem(UI_END_GROUP); }
 
-void VSTUI::run() {}
+void FaustUI::run() {}
 
 /******************************************************************************
 *******************************************************************************
@@ -472,6 +472,8 @@ static bool is_voice_ctrl(const char *label)
     !strcmp(label, "gate");
 }
 
+// Note and voice data structures.
+
 struct NoteInfo {
   uint8_t ch;
   int8_t note;
@@ -501,14 +503,123 @@ struct VoiceData {
   VoiceData(int n) : free_voices(n), used_voices(n) { }
 };
 
-struct VSTPlugin {
+#if FAUST_MTS
+
+// Helper classes to read and store MTS tunings.
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
+
+#include <vector>
+
+struct MTSTuning {
+  char *name; // name of the tuning
+  int len; // length of sysex data in bytes
+  unsigned char *data; // sysex data
+  MTSTuning() : name(0), len(0), data(0) {}
+  MTSTuning& operator=(const MTSTuning &t)
+  {
+    if (this == &t) return *this;
+    if (name) free(name); if (data) free(data);
+    name = 0; data = 0; len = t.len;
+    if (t.name) {
+      name = strdup(t.name); assert(name);
+    }
+    if (t.data) {
+      data = (unsigned char*)malloc(len); assert(data);
+      memcpy(data, t.data, len);
+    }
+    return *this;
+  }
+  MTSTuning(const MTSTuning& t) : name(0), len(0), data(0)
+  { *this = t; }
+  MTSTuning(const char *filename);
+  ~MTSTuning()
+  { if (name) free(name); if (data) free(data); }
+};
+
+MTSTuning::MTSTuning(const char *filename)
+{
+  FILE *fp = fopen(filename, "rb");
+  name = 0; len = 0; data = 0;
+  if (!fp) return;
+  struct stat st;
+  if (fstat(fileno(fp), &st)) return;
+  len = st.st_size;
+  data = (unsigned char*)calloc(len, 1);
+  if (!data) {
+    len = 0; fclose(fp);
+    return;
+  }
+  assert(len > 0);
+  if (fread(data, 1, len, fp) < len) {
+    free(data); len = 0; data = 0; fclose(fp);
+    return;
+  }
+  fclose(fp);
+  // Do some basic sanity checks.
+  if (data[0] != 0xf0 || data[len-1] != 0xf7 || // not a sysex message
+      (data[1] != 0x7e && data[1] != 0x7f) || data[3] != 8 || // not MTS
+      !((len == 21 && data[4] == 8) ||
+	(len == 33 && data[4] == 9))) { // no 1- or 2-byte tuning
+    free(data); len = 0; data = 0;
+    return;
+  }
+  // Name of the tuning is the basename of the file, without the trailing .syx
+  // suffix.
+  string nm = filename;
+  size_t p = nm.rfind(".syx");
+  if (p != string::npos) nm.erase(p);
+  p = nm.rfind('/');
+  if (p != string::npos) nm.erase(0, p+1);
+  name = strdup(nm.c_str());
+  assert(name);
+}
+
+struct MTSTunings {
+  vector<MTSTuning> tuning;
+  MTSTunings() {}
+  MTSTunings(const char *path);
+};
+
+static bool compareByName(const MTSTuning &a, const MTSTuning &b)
+{
+  return strcmp(a.name, b.name) < 0;
+}
+
+MTSTunings::MTSTunings(const char *path)
+{
+  DIR *dp = opendir(path);
+  if (!dp) return;
+  struct dirent *d;
+  while ((d = readdir(dp))) {
+    string nm = d->d_name;
+    if (nm.length() > 4 && nm.substr(nm.length()-4) == ".syx") {
+      string pathname = path;
+      pathname += "/";
+      pathname += nm;
+      MTSTuning t(pathname.c_str());
+      if (t.data) tuning.push_back(t);
+    }
+  }
+  closedir(dp);
+  // sort found tunings by name
+  sort(tuning.begin(), tuning.end(), compareByName);
+}
+
+#endif
+
+// Polyphonic Faust plugin data structure.
+
+struct FaustPlugin {
   const int maxvoices;	// maximum number of voices (zero if not an instrument)
   const int ndsps;	// number of dsp instances (1 if maxvoices==0)
   int nvoices;		// current number of voices (<= maxvoices)
   bool active;		// activation status
   int rate;		// sampling rate
   mydsp **dsp;		// the dsps
-  VSTUI **ui;		// their Faust interface descriptions
+  FaustUI **ui;		// their Faust interface descriptions
   int n_in, n_out;	// number of input and output control ports
   int poly, tuning;	// polyphony and tuning ports
   int *ctrls;		// Faust ui elements (indices into ui->elems)
@@ -529,11 +640,137 @@ struct VSTPlugin {
   // Synth data (instruments only).
   VoiceData *vd;
 
-  VSTPlugin(const int n) : maxvoices(n), ndsps(n<=0?1:n),
-			   vd(n>0?new VoiceData(n):0)
+  // Static methods. These all use static data so they can be invoked before
+  // instantiating a plugin.
+
+  // Global meta data (dsp name, author, etc.).
+  static Meta *meta;
+  static void init_meta()
   {
+    if (!meta) {
+      meta = new Meta;
+      mydsp::metadata(meta);
+    }
+  }
+
+  static const char *pluginName()
+  {
+    init_meta();
+    return meta->get("name", "mydsp");
+  }
+
+  static const char *pluginAuthor()
+  {
+    init_meta();
+    return meta->get("author", "");
+  }
+
+  static const char *pluginDescription()
+  {
+    init_meta();
+    return meta->get("description", "");
+  }
+
+  static const char *pluginVersion()
+  {
+    init_meta();
+    return meta->get("version", "0.0");
+  }
+
+#if FAUST_MTS
+  // Load a collection of sysex files with MTS tunings in ~/.faustvst/tuning.
+  static MTSTunings *mts;
+
+  static MTSTunings *load_sysex_data()
+  {
+    if (!mts) {
+      string mts_path;
+      // Look for FAUSTVST_HOME. If that isn't set, try HOME/.faustvst. If that
+      // isn't set either, just assume a faustvst subdir of the cwd.
+      const char *home = getenv("FAUSTVST_HOME");
+      if (home)
+	mts_path = home;
+      else {
+	home = getenv("HOME");
+	if (home) {
+	  mts_path = home;
+	  mts_path += "/.faustvst";
+	} else
+	  mts_path = "faustvst";
+      }
+      // MTS tunings are looked for in this subdir.
+      mts_path += "/tuning";
+      mts = new MTSTunings(mts_path.c_str());
+#ifdef __APPLE__
+      if (!mts || mts->tuning.size() == 0) {
+	// Also check ~/Library/FaustVST/Tuning on the Mac.
+	home = getenv("HOME");
+	if (home) {
+	  if (mts) delete mts;
+	  mts_path = home;
+	  mts_path += "/Library/FaustVST/Tuning";
+	  mts = new MTSTunings(mts_path.c_str());
+	}
+      }
+#endif
+    }
+    return mts;
+  }
+#endif
+
+  // The number of voices of an instrument plugin. We get this information
+  // from the global meta data (nvoices key) of the dsp module if present, and
+  // you can also override this setting at compile time by defining the
+  // NVOICES macro. If neither is defined then the plugin becomes a simple VST
+  // effect instead.
+  static int numVoices()
+  {
+#ifdef NVOICES
+    return NVOICES;
+#else
+    init_meta();
+    const char *numVoices = meta->get("nvoices", "0");
+    int nvoices = atoi(numVoices);
+    if (nvoices < 0 ) nvoices = 0;
+    return nvoices;
+#endif
+  }
+
+  // The number of controls of the dsp. Some plugin interfaces need that
+  // information beforehand, so we create a dummy instance of the UI data to
+  // retrieve it. For instrument plugins, we also reserve extra ports for the
+  // polyphony and tuning controls, if applicable.
+  static int numControls()
+  {
+    const int num_voices = numVoices();
+    mydsp dsp;
+    FaustUI ui(num_voices);
+    dsp.buildUserInterface(&ui);
+    // reserve one extra port for the polyphony control (instruments only)
+    int num_extra = (num_voices>0);
+#if FAUST_MTS
+    // likewise for the tuning control
+    if (num_voices>0 && load_sysex_data())
+      num_extra += (mts->tuning.size()>0);
+#endif
+    return ui.nports+num_extra;
+  }
+
+  // Instance methods.
+
+  FaustPlugin(const int num_voices, const int sr)
+    : maxvoices(num_voices), ndsps(num_voices<=0?1:num_voices),
+      vd(num_voices>0?new VoiceData(num_voices):0)
+  {
+    // Initialize static data if needed.
+    init_meta();
+#if FAUST_MTS
+    // Synth: load tuning sysex data if present.
+    if (num_voices>0) load_sysex_data();
+#endif
+    // Allocate data structures and set some reasonable defaults.
     dsp = (mydsp**)calloc(ndsps, sizeof(mydsp*));
-    ui = (VSTUI**)calloc(ndsps, sizeof(VSTUI*));
+    ui = (FaustUI**)calloc(ndsps, sizeof(FaustUI*));
     assert(dsp && ui);
     if (vd) {
       vd->note_info = (NoteInfo*)calloc(ndsps, sizeof(NoteInfo));
@@ -541,7 +778,7 @@ struct VSTPlugin {
       assert(vd->note_info && vd->lastgate);
     }
     active = false;
-    rate = 44100;
+    rate = sr;
     nvoices = maxvoices;
     n_in = n_out = 0;
     poly = maxvoices/2;
@@ -573,15 +810,177 @@ struct VSTPlugin {
     ports = portvals = NULL;
     units = NULL;
     memset(midivals, 0, sizeof(midivals));
+    // Initialize the Faust DSPs.
+    for (int i = 0; i < ndsps; i++) {
+      dsp[i] = new mydsp();
+      ui[i] = new FaustUI(num_voices);
+      dsp[i]->init(rate);
+      dsp[i]->buildUserInterface(ui[i]);
+    }
+    // The ports are numbered as follows: 0..k-1 are the control ports, then
+    // come the n audio input ports, then the m audio output ports, and finally
+    // the midi input port and the polyphony and tuning controls.
+    int k = ui[0]->nports, p = 0, q = 0;
+    int n = dsp[0]->getNumInputs(), m = dsp[0]->getNumOutputs();
+    // Allocate tables for the control elements and their ports.
+    ctrls = (int*)calloc(k, sizeof(int));
+    inctrls = (int*)calloc(k, sizeof(int));
+    outctrls = (int*)calloc(k, sizeof(int));
+    ports = (float*)calloc(k, sizeof(float));
+    portvals = (float*)calloc(k, sizeof(float));
+    units = (const char**)calloc(k, sizeof(const char*));
+    assert(k == 0 || (ctrls && inctrls && outctrls &&
+		      ports && portvals && units));
+    for (int ch = 0; ch < 16; ch++) {
+      midivals[ch] = (float*)calloc(k, sizeof(float));
+      assert(k == 0 || midivals[ch]);
+    }
+    // Scan the Faust UI for active and passive controls which become the
+    // input and output control ports of the plugin, respectively.
+    for (int i = 0, j = 0; i < ui[0]->nelems; i++) {
+      const char *unit = NULL;
+      switch (ui[0]->elems[i].type) {
+      case UI_T_GROUP: case UI_H_GROUP: case UI_V_GROUP: case UI_END_GROUP:
+	// control groups
+	break;
+      case UI_H_BARGRAPH: case UI_V_BARGRAPH:
+	// passive controls (output ports)
+	ctrls[j++] = i;
+	outctrls[q++] = i;
+	{
+	  std::map< int, list<strpair> >::iterator it =
+	    ui[0]->metadata.find(i);
+	  if (it != ui[0]->metadata.end()) {
+	    for (std::list<strpair>::iterator jt = it->second.begin();
+		 jt != it->second.end(); jt++) {
+	      const char *key = jt->first, *val = jt->second;
+#if DEBUG_META
+	      fprintf(stderr, "ctrl '%s' meta: '%s' -> '%s'\n",
+		      ui[0]->elems[i].label, key, val);
+#endif
+	      if (strcmp(key, "unit") == 0)
+		unit = val;
+	    }
+	  }
+	  int p = ui[0]->elems[i].port;
+	  units[p] = unit;
+	}
+	break;
+      default:
+	// active controls (input ports)
+	if (maxvoices == 0)
+	  goto noinstr;
+	else if (freq == -1 &&
+		 !strcmp(ui[0]->elems[i].label, "freq"))
+	  freq = i;
+	else if (gain == -1 &&
+		 !strcmp(ui[0]->elems[i].label, "gain"))
+	  gain = i;
+	else if (gate == -1 &&
+		 !strcmp(ui[0]->elems[i].label, "gate"))
+	  gate = i;
+	else {
+	noinstr:
+	  std::map< int, list<strpair> >::iterator it =
+	    ui[0]->metadata.find(i);
+	  if (it != ui[0]->metadata.end()) {
+	    // Scan for controller mappings and other control meta data.
+	    for (std::list<strpair>::iterator jt = it->second.begin();
+		 jt != it->second.end(); jt++) {
+	      const char *key = jt->first, *val = jt->second;
+#if DEBUG_META
+	      fprintf(stderr, "ctrl '%s' meta: '%s' -> '%s'\n",
+		      ui[0]->elems[i].label, key, val);
+#endif
+	      if (strcmp(key, "unit") == 0) {
+		unit = val;
+#if FAUST_MIDICC
+	      } else if (strcmp(key, "midi") == 0) {
+		unsigned num;
+		if (sscanf(val, "ctrl %u", &num) < 1) continue;
+#if 0 // enable this to get feedback about controller assignments
+		const char *dsp_name = pluginName();
+		fprintf(stderr, "%s: cc %d -> %s\n", dsp_name, num,
+			ui[0]->elems[i].label);
+#endif
+		ctrlmap.insert(std::pair<uint8_t,int>(num, p));
+#endif
+	      }
+	    }
+	  }
+	  ctrls[j++] = i;
+	  inctrls[p++] = i;
+	  int p = ui[0]->elems[i].port;
+	  float val = ui[0]->elems[i].init;
+	  portvals[p] = ports[p] = val;
+	  units[p] = unit;
+	  for (int ch = 0; ch < 16; ch++)
+	    midivals[ch][p] = val;
+	}
+	break;
+      }
+    }
+    // Realloc the inctrls and outctrls vectors to their appropriate sizes.
+    inctrls = (int*)realloc(inctrls, p*sizeof(int));
+    assert(p == 0 || inctrls);
+    outctrls = (int*)realloc(outctrls, q*sizeof(int));
+    assert(q == 0 || outctrls);
+    n_in = p; n_out = q;
+    if (maxvoices > 0) {
+      // Initialize the mixdown buffer.
+      outbuf = (float**)calloc(m, sizeof(float*));
+      assert(m == 0 || outbuf);
+      // We start out with a blocksize of 512 samples here. Hopefully this is
+      // enough for most realtime hosts so that we can avoid reallocations later
+      // when we know what the actual blocksize is.
+      n_samples = 512;
+      for (int i = 0; i < m; i++) {
+	outbuf[i] = (float*)malloc(n_samples*sizeof(float));
+	assert(outbuf[i]);
+      }
+      // Initialize a 1-sample dummy input buffer used for retriggering notes.
+      inbuf = (float**)calloc(n, sizeof(float*));
+      assert(n == 0 || inbuf);
+      for (int i = 0; i < m; i++) {
+	inbuf[i] = (float*)malloc(sizeof(float));
+	assert(inbuf[i]);
+	*inbuf[i] = 0.0f;
+      }
+    }
   }
 
-  ~VSTPlugin()
+  ~FaustPlugin()
   {
+    const int n = dsp[0]->getNumInputs();
+    const int m = dsp[0]->getNumOutputs();
+    for (int i = 0; i < ndsps; i++) {
+      delete dsp[i];
+      delete ui[i];
+    }
+    free(ctrls);
+    free(inctrls);
+    free(outctrls);
+    free(ports);
+    free(portvals);
+    free(units);
+    for (int ch = 0; ch < 16; ch++)
+      free(midivals[ch]);
+    if (inbuf) {
+      for (int i = 0; i < n; i++)
+	free(inbuf[i]);
+      free(inbuf);
+    }
+    if (outbuf) {
+      for (int i = 0; i < m; i++)
+	free(outbuf[i]);
+      free(outbuf);
+    }
     free(dsp);
     free(ui);
     if (vd) {
       free(vd->note_info);
       free(vd->lastgate);
+      delete vd;
     }
   }
 
@@ -830,115 +1229,94 @@ struct VSTPlugin {
 #endif
       }
   }
-};
 
-#if FAUST_MTS
+  // Process an MTS sysex message and update the control values accordingly.
 
-// Helper classes to read and store MTS tunings.
-
-#include <vector>
-
-struct MTSTuning {
-  char *name; // name of the tuning
-  int len; // length of sysex data in bytes
-  unsigned char *data; // sysex data
-  MTSTuning() : name(0), len(0), data(0) {}
-  MTSTuning& operator=(const MTSTuning &t)
+  void mts_sysex(uint8_t *data, int sz)
   {
-    if (this == &t) return *this;
-    if (name) free(name); if (data) free(data);
-    name = 0; data = 0; len = t.len;
-    if (t.name) {
-      name = strdup(t.name); assert(name);
-    }
-    if (t.data) {
-      data = (unsigned char*)malloc(len); assert(data);
-      memcpy(data, t.data, len);
-    }
-    return *this;
-  }
-  MTSTuning(const MTSTuning& t) : name(0), len(0), data(0)
-  { *this = t; }
-  MTSTuning(const char *filename);
-  ~MTSTuning()
-  { if (name) free(name); if (data) free(data); }
-};
-
-#include <sys/stat.h>
-
-MTSTuning::MTSTuning(const char *filename)
-{
-  FILE *fp = fopen(filename, "rb");
-  name = 0; len = 0; data = 0;
-  if (!fp) return;
-  struct stat st;
-  if (fstat(fileno(fp), &st)) return;
-  len = st.st_size;
-  data = (unsigned char*)calloc(len, 1);
-  if (!data) {
-    len = 0; fclose(fp);
-    return;
-  }
-  assert(len > 0);
-  if (fread(data, 1, len, fp) < len) {
-    free(data); len = 0; data = 0; fclose(fp);
-    return;
-  }
-  fclose(fp);
-  // Do some basic sanity checks.
-  if (data[0] != 0xf0 || data[len-1] != 0xf7 || // not a sysex message
-      (data[1] != 0x7e && data[1] != 0x7f) || data[3] != 8 || // not MTS
-      !((len == 21 && data[4] == 8) ||
-	(len == 33 && data[4] == 9))) { // no 1- or 2-byte tuning
-    free(data); len = 0; data = 0;
-    return;
-  }
-  // Name of the tuning is the basename of the file, without the trailing .syx
-  // suffix.
-  string nm = filename;
-  size_t p = nm.rfind(".syx");
-  if (p != string::npos) nm.erase(p);
-  p = nm.rfind('/');
-  if (p != string::npos) nm.erase(0, p+1);
-  name = strdup(nm.c_str());
-  assert(name);
-}
-
-struct MTSTunings {
-  vector<MTSTuning> tuning;
-  MTSTunings() {}
-  MTSTunings(const char *path);
-};
-
-#include <sys/types.h>
-#include <dirent.h>
-
-static bool compareByName(const MTSTuning &a, const MTSTuning &b)
-{
-  return strcmp(a.name, b.name) < 0;
-}
-
-MTSTunings::MTSTunings(const char *path)
-{
-  DIR *dp = opendir(path);
-  if (!dp) return;
-  struct dirent *d;
-  while ((d = readdir(dp))) {
-    string nm = d->d_name;
-    if (nm.length() > 4 && nm.substr(nm.length()-4) == ".syx") {
-      string pathname = path;
-      pathname += "/";
-      pathname += nm;
-      MTSTuning t(pathname.c_str());
-      if (t.data) tuning.push_back(t);
-    }
-  }
-  closedir(dp);
-  // sort found tunings by name
-  sort(tuning.begin(), tuning.end(), compareByName);
-}
-
+#if DEBUG_MIDI
+    fprintf(stderr, "midi sysex (%d bytes):", sz);
+    for (int i = 0; i < sz; i++)
+      fprintf(stderr, " 0x%0x", data[i]);
+    fprintf(stderr, "\n");
 #endif
+    if (data[0] == 0xf0) {
+      // Skip over the f0 and f7 status bytes in case they are included in the
+      // dump.
+      data++; sz--;
+      if (data[sz-1] == 0xf7) sz--;
+    }
+    if ((data[0] == 0x7e || data[0] == 0x7f) && data[2] == 8) {
+      // MIDI tuning standard
+      bool realtime = data[0] == 0x7f;
+      if ((sz == 19 && data[3] == 8) ||
+	  (sz == 31 && data[3] == 9)) {
+	// MTS scale/octave tuning 1- or 2-byte form
+	bool onebyte = data[3] == 8;
+	unsigned chanmsk = (data[4]<<14) | (data[5]<<7) | data[6];
+	for (int i = 0; i < 12; i++) {
+	  float t;
+	  if (onebyte)
+	    t = (data[i+7]-64)/100.0;
+	  else
+	    t = (((data[2*i+7]<<7)|data[2*i+8])-8192)/8192.0;
+	  for (uint8_t ch = 0; ch < 16; ch++)
+	    if (chanmsk & (1<<ch))
+	      vd->tuning[ch][i] = t;
+	}
+	if (realtime) {
+	  for (uint8_t ch = 0; ch < 16; ch++)
+	    if (chanmsk & (1<<ch)) {
+	      // update running voices on this channel
+	      update_voices(ch);
+	    }
+	}
+#if DEBUG_MTS
+	fprintf(stderr, "octave-tuning-%s (chan ",
+		realtime?"realtime":"non-realtime");
+	bool first = true;
+	for (uint8_t i = 0; i < 16; )
+	  if (chanmsk & (1<<i)) {
+	    uint8_t j;
+	    for (j = i+1; j < 16 && (chanmsk&(1<<j)); )
+	      j++;
+	    if (first)
+	      first = false;
+	    else
+	      fprintf(stderr, ",");
+	    if (j > i+1)
+	      fprintf(stderr, "%u-%u", i+1, j);
+	    else
+	      fprintf(stderr, "%u", i+1);
+	    i = j;
+	  } else
+	    i++;
+	fprintf(stderr, "):");
+	if (onebyte) {
+	  for (int i = 7; i < 19; i++) {
+	    int val = data[i];
+	    fprintf(stderr, " %d", val-64);
+	  }
+	} else {
+	  for (int i = 7; i < 31; i++) {
+	    int val = data[i++] << 7;
+	    val |= data[i];
+	    fprintf(stderr, " %g", ((double)val-8192.0)/8192.0*100.0);
+	  }
+	}
+	fprintf(stderr, "\n");
+#endif
+      }
+    }
+  }
+};
+
+Meta *FaustPlugin::meta = 0;
+#if FAUST_MTS
+MTSTunings *FaustPlugin::mts = 0;
+#endif
+
+/* VST-specific part starts here. ********************************************/
 
 #include "audioeffectx.h"
 
@@ -986,21 +1364,11 @@ public:
   // output for passive Faust controls in the future.
   virtual VstInt32 getNumMidiOutputChannels()  { return 0; }
 
-#if FAUST_MTS
-  static MTSTunings *mts;
-#endif
-
 private:
-  VSTPlugin *plugin;
-  Meta meta;
+  FaustPlugin *plugin;
   char progname[kVstMaxProgNameLen+1];
   float *defprog;
-  void mts_sysex(uint8_t *data, int sz);
 };
-
-#if FAUST_MTS
-MTSTunings *VSTWrapper::mts = 0;
-#endif
 
 // Create a "unique" VST plugin ID using Murmur2 hashes. This can't possibly
 // avoid all collisions, but will hopefully be good enough.
@@ -1078,99 +1446,14 @@ AudioEffect *createEffectInstance(audioMasterCallback audioMaster)
   return new VSTWrapper(audioMaster);
 }
 
-// The number of voices of an instrument plugin (VSTi). We get this
-// information from the global meta data (nvoices key) of the dsp module if
-// present, and you can also override this setting at compile time by defining
-// the NVOICES macro. If neither is defined then the plugin becomes a simple
-// VST effect instead.
-static int numVoices()
-{
-#ifdef NVOICES
-  return NVOICES;
-#else
-  Meta meta;
-  mydsp::metadata(&meta);
-  const char *numVoices = meta.get("nvoices", "0");
-  int nvoices = atoi(numVoices);
-  if (nvoices < 0 ) nvoices = 0;
-  return nvoices;
-#endif
-}
-
-#if FAUST_MTS
-static MTSTunings *load_sysex_data()
-{
-  if (!VSTWrapper::mts) {
-    string mts_path;
-    // Look for FAUSTVST_HOME. If that isn't set, try HOME/.faustvst. If that
-    // isn't set either, just assume a faustvst subdir of the cwd.
-    const char *home = getenv("FAUSTVST_HOME");
-    if (home)
-      mts_path = home;
-    else {
-      home = getenv("HOME");
-      if (home) {
-	mts_path = home;
-	mts_path += "/.faustvst";
-      } else
-	mts_path = "faustvst";
-    }
-    // MTS tunings are looked for in this subdir.
-    mts_path += "/tuning";
-    VSTWrapper::mts = new MTSTunings(mts_path.c_str());
-#ifdef __APPLE__
-    if (!VSTWrapper::mts || VSTWrapper::mts->tuning.size() == 0) {
-      home = getenv("HOME");
-      if (home) {
-	if (VSTWrapper::mts) delete VSTWrapper::mts;
-	mts_path = home;
-	mts_path += "/Library/FaustVST/Tuning";
-	VSTWrapper::mts = new MTSTunings(mts_path.c_str());
-      }
-    }
-#endif
-  }
-  return VSTWrapper::mts;
-}
-#endif
-
-// The AudioEffectX constructor needs the number of controls of the dsp, so we
-// create a dummy instance of the UI data to retrieve that information.
-static int numControls()
-{
-  const int num_voices = numVoices();
-  mydsp dsp;
-  VSTUI ui(num_voices);
-  dsp.buildUserInterface(&ui);
-  // reserve one extra port for the polyphony control (instruments only)
-  int num_extra = (num_voices>0);
-#if FAUST_MTS
-  // likewise for the tuning control
-  if (num_voices>0 && load_sysex_data())
-    num_extra += (VSTWrapper::mts->tuning.size()>0);
-#endif
-  return ui.nports+num_extra;
-}
-
 VSTWrapper::VSTWrapper(audioMasterCallback audioMaster)
-  : AudioEffectX(audioMaster, 1, numControls())
+  : AudioEffectX(audioMaster, 1, FaustPlugin::numControls())
 {
-  mydsp::metadata(&meta);
-  const char *effectName = meta.get("name", "mydsp");
-  const int num_voices = numVoices();
-  plugin = new VSTPlugin(num_voices);
-#if FAUST_MTS
-  if (num_voices>0) load_sysex_data();
-#endif
+  const char *dsp_name = FaustPlugin::pluginName();
+  const int num_voices = FaustPlugin::numVoices();
   // Get the initial sample rate from the VST host.
-  plugin->rate = getSampleRate();
-  // Initialize the Faust DSPs.
-  for (int i = 0; i < plugin->ndsps; i++) {
-    plugin->dsp[i] = new mydsp();
-    plugin->ui[i] = new VSTUI(num_voices);
-    plugin->dsp[i]->init(plugin->rate);
-    plugin->dsp[i]->buildUserInterface(plugin->ui[i]);
-  }
+  const int rate = getSampleRate();
+  plugin = new FaustPlugin(num_voices, rate);
   // VST-specific initialization:
   if (audioMaster) {
     setNumInputs(plugin->dsp[0]->getNumInputs());
@@ -1178,182 +1461,24 @@ VSTWrapper::VSTWrapper(audioMasterCallback audioMaster)
     canProcessReplacing();
     if (plugin->maxvoices > 0) isSynth();
     // XXXFIXME: Maybe do something more clever for the unique id.
-    setUniqueID((VstInt32)idhash(effectName));
+    setUniqueID((VstInt32)idhash(dsp_name));
   }
   // We only provide one program (set of controller values).
   curProgram = 0;
   setProgramName("Default");
-  // The ports are numbered as follows: 0..k-1 are the control ports, then
-  // come the n audio input ports, then the m audio output ports, and finally
-  // the midi input port and the polyphony and tuning controls. XXXFIXME: This
-  // layout was inherited from the LV2 architecture and should probably be
-  // adjusted for VST.
-  int k = plugin->ui[0]->nports, p = 0, q = 0;
-  int n = plugin->dsp[0]->getNumInputs(), m = plugin->dsp[0]->getNumOutputs();
-  // Allocate tables for the control elements and their ports.
-  plugin->ctrls = (int*)calloc(k, sizeof(int));
-  plugin->inctrls = (int*)calloc(k, sizeof(int));
-  plugin->outctrls = (int*)calloc(k, sizeof(int));
-  plugin->ports = (float*)calloc(k, sizeof(float));
-  plugin->portvals = (float*)calloc(k, sizeof(float));
-  plugin->units = (const char**)calloc(k, sizeof(const char*));
-  assert(k == 0 || (plugin->ctrls && plugin->inctrls && plugin->outctrls &&
-		    plugin->ports && plugin->portvals && plugin->units));
-  for (int ch = 0; ch < 16; ch++) {
-    plugin->midivals[ch] = (float*)calloc(k, sizeof(float));
-    assert(k == 0 || plugin->midivals[ch]);
-  }
-  // Scan the Faust UI for active and passive controls which become the
-  // input and output control ports of the VST plugin, respectively.
-  for (int i = 0, j = 0; i < plugin->ui[0]->nelems; i++) {
-    const char *unit = NULL;
-    switch (plugin->ui[0]->elems[i].type) {
-    case UI_T_GROUP: case UI_H_GROUP: case UI_V_GROUP: case UI_END_GROUP:
-      // control groups
-      break;
-    case UI_H_BARGRAPH: case UI_V_BARGRAPH:
-      // passive controls (output ports)
-      plugin->ctrls[j++] = i;
-      plugin->outctrls[q++] = i;
-      {
-	std::map< int, list<strpair> >::iterator it =
-	  plugin->ui[0]->metadata.find(i);
-	if (it != plugin->ui[0]->metadata.end()) {
-	  for (std::list<strpair>::iterator jt = it->second.begin();
-	       jt != it->second.end(); jt++) {
-	    const char *key = jt->first, *val = jt->second;
-#if DEBUG_META
-	    fprintf(stderr, "ctrl '%s' meta: '%s' -> '%s'\n",
-		    plugin->ui[0]->elems[i].label, key, val);
-#endif
-	    if (strcmp(key, "unit") == 0)
-	      unit = val;
-	  }
-	}
-	int p = plugin->ui[0]->elems[i].port;
-	plugin->units[p] = unit;
-      }
-      break;
-    default:
-      // active controls (input ports)
-      if (plugin->maxvoices == 0)
-	goto noinstr;
-      else if (plugin->freq == -1 &&
-	       !strcmp(plugin->ui[0]->elems[i].label, "freq"))
-	plugin->freq = i;
-      else if (plugin->gain == -1 &&
-	       !strcmp(plugin->ui[0]->elems[i].label, "gain"))
-	plugin->gain = i;
-      else if (plugin->gate == -1 &&
-	       !strcmp(plugin->ui[0]->elems[i].label, "gate"))
-	plugin->gate = i;
-      else {
-      noinstr:
-	std::map< int, list<strpair> >::iterator it =
-	  plugin->ui[0]->metadata.find(i);
-	if (it != plugin->ui[0]->metadata.end()) {
-	  // Scan for controller mappings and other control meta data.
-	  for (std::list<strpair>::iterator jt = it->second.begin();
-	       jt != it->second.end(); jt++) {
-	    const char *key = jt->first, *val = jt->second;
-#if DEBUG_META
-	    fprintf(stderr, "ctrl '%s' meta: '%s' -> '%s'\n",
-		    plugin->ui[0]->elems[i].label, key, val);
-#endif
-	    if (strcmp(key, "unit") == 0) {
-	      unit = val;
-#if FAUST_MIDICC
-	    } else if (strcmp(key, "midi") == 0) {
-	      unsigned num;
-	      if (sscanf(val, "ctrl %u", &num) < 1) continue;
-#if 0 // enable this to get feedback about controller assignments
-	      const char *effectName = meta.get("name", "mydsp");
-	      fprintf(stderr, "%s: cc %d -> %s\n", effectName, num,
-		      plugin->ui[0]->elems[i].label);
-#endif
-	      plugin->ctrlmap.insert(std::pair<uint8_t,int>(num, p));
-#endif
-	    }
-	  }
-	}
-	plugin->ctrls[j++] = i;
-	plugin->inctrls[p++] = i;
-	int p = plugin->ui[0]->elems[i].port;
-	float val = plugin->ui[0]->elems[i].init;
-	plugin->portvals[p] = plugin->ports[p] = val;
-	plugin->units[p] = unit;
-	for (int ch = 0; ch < 16; ch++)
-	  plugin->midivals[ch][p] = val;
-      }
-      break;
-    }
-  }
-  // Realloc the inctrls and outctrls vectors to their appropriate sizes.
-  plugin->inctrls = (int*)realloc(plugin->inctrls, p*sizeof(int));
-  assert(p == 0 || plugin->inctrls);
-  plugin->outctrls = (int*)realloc(plugin->outctrls, q*sizeof(int));
-  assert(q == 0 || plugin->outctrls);
-  plugin->n_in = p; plugin->n_out = q;
-  if (plugin->maxvoices > 0) {
-    // Initialize the mixdown buffer.
-    plugin->outbuf = (float**)calloc(m, sizeof(float*));
-    assert(m == 0 || plugin->outbuf);
-    // We start out with a blocksize of 512 samples here. Hopefully this is
-    // enough for most realtime hosts so that we can avoid reallocations later
-    // when we know what the actual blocksize is. XXXFIXME: We should probably
-    // override AudioEffect::setBlockSize to be informed about changes in the
-    // block size. This will always be called in suspended state so that the
-    // buffers can be adjusted without doing any harm.
-    plugin->n_samples = 512;
-    for (int i = 0; i < m; i++) {
-      plugin->outbuf[i] = (float*)malloc(plugin->n_samples*sizeof(float));
-      assert(plugin->outbuf[i]);
-    }
-    // Initialize a 1-sample dummy input buffer used for retriggering notes.
-    plugin->inbuf = (float**)calloc(n, sizeof(float*));
-    assert(n == 0 || plugin->inbuf);
-    for (int i = 0; i < m; i++) {
-      plugin->inbuf[i] = (float*)malloc(sizeof(float));
-      assert(plugin->inbuf[i]);
-      *plugin->inbuf[i] = 0.0f;
-    }
-  }
   // Initialize the program storage. At present, we only provide one program
   // which is filled with the default input control values.
-  defprog = (float*)calloc(p, sizeof(float));
-  assert(p == 0 || defprog);
-  // At this point, the first p elements of plugin->ports are filled with the
-  // initial input control values, copy them over to the default program.
-  memcpy(defprog, plugin->ports, p*sizeof(float));
+  defprog = (float*)calloc(plugin->n_in, sizeof(float));
+  assert(plugin->n_in == 0 || defprog);
+  // At this point, the first n_in elements of plugin->ports are filled with
+  // the initial input control values, copy them over to the default program.
+  memcpy(defprog, plugin->ports, plugin->n_in*sizeof(float));
 }
 
 VSTWrapper::~VSTWrapper()
 {
-  int n = plugin->dsp[0]->getNumInputs();
-  int m = plugin->dsp[0]->getNumOutputs();
-  for (int i = 0; i < plugin->ndsps; i++) {
-    delete plugin->dsp[i];
-    delete plugin->ui[i];
-  }
-  free(plugin->ctrls);
-  free(plugin->inctrls);
-  free(plugin->outctrls);
-  free(plugin->ports);
-  free(plugin->portvals);
-  free(plugin->units);
-  for (int ch = 0; ch < 16; ch++)
-    free(plugin->midivals[ch]);
-  if (plugin->inbuf) {
-    for (int i = 0; i < n; i++)
-      free(plugin->inbuf[i]);
-    free(plugin->inbuf);
-  }
-  if (plugin->outbuf) {
-    for (int i = 0; i < m; i++)
-      free(plugin->outbuf[i]);
-    free(plugin->outbuf);
-  }
   delete plugin;
+  if (defprog) free(defprog);
 }
 
 // plugin activation and deactivation
@@ -1440,7 +1565,7 @@ void VSTWrapper::getParameterName(VstInt32 index, char *label)
   } else if (index == k && plugin->maxvoices > 0) {
     strcpy(label, "polyphony");
 #if FAUST_MTS
-  } else if (index == k+1 && mts && mts->tuning.size() > 0) {
+  } else if (index == k+1 && plugin->mts && plugin->mts->tuning.size() > 0) {
     strcpy(label, "tuning");
 #endif
   }
@@ -1469,9 +1594,9 @@ void VSTWrapper::getParameterDisplay(VstInt32 index, char *text)
   } else if (index == k && plugin->maxvoices > 0) {
     sprintf(text, "%d voices", plugin->poly);
 #if FAUST_MTS
-  } else if (index == k+1 && mts && mts->tuning.size() > 0) {
+  } else if (index == k+1 && plugin->mts && plugin->mts->tuning.size() > 0) {
     sprintf(text, "%d %s", plugin->tuning,
-	    plugin->tuning>0?mts->tuning[plugin->tuning-1].name:
+	    plugin->tuning>0?plugin->mts->tuning[plugin->tuning-1].name:
 	    "default");
 #endif
   }
@@ -1492,8 +1617,8 @@ float VSTWrapper::getParameter(VstInt32 index)
   } else if (index == k && plugin->maxvoices > 0) {
     return (float)plugin->poly/(float)plugin->maxvoices;
 #if FAUST_MTS
-  } else if (index == k+1 && mts && mts->tuning.size() > 0) {
-    return (float)plugin->tuning/(float)mts->tuning.size();
+  } else if (index == k+1 && plugin->mts && plugin->mts->tuning.size() > 0) {
+    return (float)plugin->tuning/(float)plugin->mts->tuning.size();
 #endif
   } else
     return 0.0f;
@@ -1533,13 +1658,13 @@ void VSTWrapper::setParameter(VstInt32 index, float value)
     plugin->poly = (int)quantize((value*plugin->maxvoices), 1);
     if (plugin->poly <= 0) plugin->poly = 1;
 #if FAUST_MTS
-  } else if (index == k+1 && mts && mts->tuning.size() > 0) {
-    int tuning = (int)quantize((value*mts->tuning.size()), 1);
+  } else if (index == k+1 && plugin->mts && plugin->mts->tuning.size() > 0) {
+    int tuning = (int)quantize((value*plugin->mts->tuning.size()), 1);
     if (tuning != plugin->tuning) {
       plugin->tuning = tuning;
       if (tuning > 0) {
-	mts_sysex(mts->tuning[tuning-1].data,
-		  mts->tuning[tuning-1].len);
+	plugin->mts_sysex(plugin->mts->tuning[tuning-1].data,
+			  plugin->mts->tuning[tuning-1].len);
       } else {
 	// reset to default tuning (equal temperament)
 	memset(plugin->vd->tuning, 0, sizeof(plugin->vd->tuning));
@@ -1583,14 +1708,16 @@ bool VSTWrapper::string2parameter(VstInt32 index, char *text)
     if (val > plugin->maxvoices) val = plugin->maxvoices;
     plugin->poly = val;
 #if FAUST_MTS
-  } else if (index == k+1 && mts && mts->tuning.size() > 0) {
+  } else if (index == k+1 && plugin->mts &&
+	     plugin->mts->tuning.size() > 0) {
     int val = atoi(text);
     if (val < 0) val = 0;
-    if (val > mts->tuning.size()) val = mts->tuning.size();
+    if (val > plugin->mts->tuning.size())
+      val = plugin->mts->tuning.size();
     plugin->tuning = val;
     if (plugin->tuning > 0) {
-      mts_sysex(mts->tuning[plugin->tuning-1].data,
-		mts->tuning[plugin->tuning-1].len);
+      plugin->mts_sysex(plugin->mts->tuning[plugin->tuning-1].data,
+			plugin->mts->tuning[plugin->tuning-1].len);
     } else {
       memset(plugin->vd->tuning, 0, sizeof(plugin->vd->tuning));
 #if DEBUG_MTS
@@ -1609,12 +1736,12 @@ bool VSTWrapper::string2parameter(VstInt32 index, char *text)
 bool VSTWrapper::getInputProperties(VstInt32 index,
 				    VstPinProperties* properties)
 {
-  const char *effectName = meta.get("name", "mydsp");
+  const char *dsp_name = FaustPlugin::pluginName();
   const int n = plugin->dsp[0]->getNumInputs();
   if (index < 0 || index >= n)
     return false;
   snprintf(properties->label, kVstMaxLabelLen,
-	   "%s input #%d", effectName, index);
+	   "%s input #%d", dsp_name, index);
   sprintf(properties->shortLabel, "In%d", index);
   properties->flags = kVstPinIsActive;
   // XXXTODO: deal with multi-channel setups (>2) here
@@ -1626,12 +1753,12 @@ bool VSTWrapper::getInputProperties(VstInt32 index,
 bool VSTWrapper::getOutputProperties(VstInt32 index,
 				     VstPinProperties* properties)
 {
-  const char *effectName = meta.get("name", "mydsp");
+  const char *dsp_name = FaustPlugin::pluginName();
   const int n = plugin->dsp[0]->getNumOutputs();
   if (index < 0 || index >= n)
     return false;
   snprintf(properties->label, kVstMaxLabelLen,
-	   "%s output #%d", effectName, index);
+	   "%s output #%d", dsp_name, index);
   sprintf(properties->shortLabel, "Out%d", index);
   properties->flags = kVstPinIsActive;
   // XXXTODO: deal with multi-channel setups (>2) here
@@ -1644,28 +1771,28 @@ bool VSTWrapper::getOutputProperties(VstInt32 index,
 
 bool VSTWrapper::getEffectName(char *name)
 {
-  const char *effectName = meta.get("name", "mydsp");
-  vst_strncpy(name, effectName, kVstMaxEffectNameLen);
+  const char *dsp_name = FaustPlugin::pluginName();
+  vst_strncpy(name, dsp_name, kVstMaxEffectNameLen);
   return true;
 }
 
 bool VSTWrapper::getVendorString(char *text)
 {
-  const char *vendorString = meta.get("author", "");
+  const char *vendorString = FaustPlugin::pluginAuthor();
   vst_strncpy(text, vendorString, kVstMaxVendorStrLen);
   return true;
 }
 
 bool VSTWrapper::getProductString(char *text)
 {
-  const char *productString = meta.get("description", "");
+  const char *productString = FaustPlugin::pluginDescription();
   vst_strncpy(text, productString, kVstMaxProductStrLen);
   return true;
 }
 
 VstInt32 VSTWrapper::getVendorVersion()
 { 
-  const char *versionString = meta.get("version", "0.0");
+  const char *versionString = FaustPlugin::pluginVersion();
   return (VstInt32)(atof(versionString)*1000.0);
 }
 
@@ -1833,84 +1960,6 @@ static float ctrlval(const ui_elem_t &el, uint8_t v)
   }
 }
 #endif
-
-void VSTWrapper::mts_sysex(uint8_t *data, int sz)
-{
-#if DEBUG_MIDI
-  fprintf(stderr, "midi sysex (%d bytes):", sz);
-  for (int i = 0; i < sz; i++)
-    fprintf(stderr, " 0x%0x", data[i]);
-  fprintf(stderr, "\n");
-#endif
-  if (data[0] == 0xf0) {
-    // Skip over the f0 and f7 status bytes in case they are included in the
-    // dump.
-    data++; sz--;
-    if (data[sz-1] == 0xf7) sz--;
-  }
-  if ((data[0] == 0x7e || data[0] == 0x7f) && data[2] == 8) {
-    // MIDI tuning standard
-    bool realtime = data[0] == 0x7f;
-    if ((sz == 19 && data[3] == 8) ||
-	(sz == 31 && data[3] == 9)) {
-      // MTS scale/octave tuning 1- or 2-byte form
-      bool onebyte = data[3] == 8;
-      unsigned chanmsk = (data[4]<<14) | (data[5]<<7) | data[6];
-      for (int i = 0; i < 12; i++) {
-	float t;
-	if (onebyte)
-	  t = (data[i+7]-64)/100.0;
-	else
-	  t = (((data[2*i+7]<<7)|data[2*i+8])-8192)/8192.0;
-	for (uint8_t ch = 0; ch < 16; ch++)
-	  if (chanmsk & (1<<ch))
-	    plugin->vd->tuning[ch][i] = t;
-      }
-      if (realtime) {
-	for (uint8_t ch = 0; ch < 16; ch++)
-	  if (chanmsk & (1<<ch)) {
-	    // update running voices on this channel
-	    plugin->update_voices(ch);
-	  }
-      }
-#if DEBUG_MTS
-      fprintf(stderr, "octave-tuning-%s (chan ",
-	      realtime?"realtime":"non-realtime");
-      bool first = true;
-      for (uint8_t i = 0; i < 16; )
-	if (chanmsk & (1<<i)) {
-	  uint8_t j;
-	  for (j = i+1; j < 16 && (chanmsk&(1<<j)); )
-	    j++;
-	  if (first)
-	    first = false;
-	  else
-	    fprintf(stderr, ",");
-	  if (j > i+1)
-	    fprintf(stderr, "%u-%u", i+1, j);
-	  else
-	    fprintf(stderr, "%u", i+1);
-	  i = j;
-	} else
-	  i++;
-      fprintf(stderr, "):");
-      if (onebyte) {
-	for (int i = 7; i < 19; i++) {
-	  int val = data[i];
-	  fprintf(stderr, " %d", val-64);
-	}
-      } else {
-	for (int i = 7; i < 31; i++) {
-	  int val = data[i++] << 7;
-	  val |= data[i];
-	  fprintf(stderr, " %g", ((double)val-8192.0)/8192.0*100.0);
-	}
-      }
-      fprintf(stderr, "\n");
-#endif
-    }
-  }
-}
 
 VstInt32 VSTWrapper::processEvents(VstEvents* events)
 {
@@ -2125,11 +2174,11 @@ VstInt32 VSTWrapper::processEvents(VstEvents* events)
       uint8_t *data = (uint8_t*)ev->sysexDump;
       bool is_instr = plugin->maxvoices > 0;
       if (!is_instr || !data || sz < 2) continue;
-      mts_sysex(data, sz);
+      plugin->mts_sysex(data, sz);
       break;
     } else {
       fprintf(stderr, "%s: unknown event type %d\n",
-	      meta.get("name", "mydsp"), events->events[i]->type);
+	      FaustPlugin::pluginName(), events->events[i]->type);
     }
   }
   return 1;

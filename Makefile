@@ -88,6 +88,8 @@ dspsource = $(sort $(wildcard */*.dsp))
 cppsource = $(patsubst %.dsp,%.cpp,$(dspsource))
 objects = $(patsubst %.dsp,%.o,$(dspsource))
 plugins = $(patsubst %.dsp,%$(DLL),$(dspsource))
+# These timestamp files are only created when generating OS X bundles.
+stamps = $(patsubst %.dsp,%.stamp,$(dspsource))
 
 # Extra objects with VST-specific code needed to build the plugins.
 main = vstplugmain
@@ -128,12 +130,18 @@ $(afxx).o: $(SDKSRC)/$(afxx).cpp
 	$(CXX) $(CXXFLAGS) $(EXTRA_CFLAGS) -c -o $@ $<
 
 ifeq "$(DLL)" ".vst"
-# This rule builds an OS X bundle.
-%.vst: %.o $(extra_objects)
-	mkdir -p $@/Contents/MacOS
-	printf '%s' 'BNDL????' > $@/Contents/PkgInfo
-	sed -e 's?@name@?$(notdir $(@:.vst=))?g;s?@version@?1.0.0?g' < Info.plist.in > $@/Contents/Info.plist
-	$(CXX) $(shared) $^ -o $@/Contents/MacOS/$(notdir $(@:.vst=))
+# This rule builds an OS X bundle. Since the target %.vst is a directory here,
+# we have to go to some lengths to prevent make from rebuilding the target
+# each time.
+.PRECIOUS: %.stamp
+%.vst: %.stamp
+	@echo made $@ >/dev/null
+%.stamp: %.o $(extra_objects)
+	mkdir -p $(@:.stamp=.vst)/Contents/MacOS
+	printf '%s' 'BNDL????' > $(@:.stamp=.vst)/Contents/PkgInfo
+	sed -e 's?@name@?$(notdir $(@:.stamp=))?g;s?@version@?1.0.0?g' < Info.plist.in > $(@:.stamp=.vst)/Contents/Info.plist
+	$(CXX) $(shared) $^ -o $(@:.stamp=.vst)/Contents/MacOS/$(notdir $(@:.stamp=))
+	touch $@
 else
 %$(DLL): %.o $(extra_objects)
 	$(CXX) $(shared) $^ -o $@
@@ -142,7 +150,7 @@ endif
 # Clean.
 
 clean:
-	rm -Rf faust2faustvst $(cppsource) $(objects) $(extra_objects) $(plugins)
+	rm -Rf faust2faustvst $(cppsource) $(stamps) $(objects) $(extra_objects) $(plugins)
 
 # Install.
 

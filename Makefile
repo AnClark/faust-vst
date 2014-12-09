@@ -48,6 +48,12 @@ SDKSRC = $(firstword $(patsubst %/,%,$(dir $(wildcard $(addsuffix vstplugmain.cp
 # Debug MTS messages (synth: octave/scale tuning).
 #DEFINES += -DDEBUG_MTS=1
 
+# Additional Faust flags.
+# Uncomment the following to have Faust substitute the proper class name into
+# the C++ code. Be warned, however, that this requires that the basename of
+# the dsp file is a valid C identifier, which isn't guaranteed.
+#FAUST_FLAGS += -cn $(@:examples/%.cpp=%)
+
 # Default compilation flags.
 CFLAGS = -O3
 # Use this for debugging code instead.
@@ -115,7 +121,7 @@ faust2faustvst: faust2faustvst.in
 # Generic build rules.
 
 %.cpp: %.dsp
-	faust -a $(arch).cpp -I examples $< -o $@
+	faust -a $(arch).cpp -I examples $(FAUST_FLAGS) $< -o $@
 
 $(main).o: $(SDKSRC)/$(main).cpp
 	$(CXX) $(CXXFLAGS) $(EXTRA_CFLAGS) -c -o $@ $<

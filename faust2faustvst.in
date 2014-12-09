@@ -97,6 +97,11 @@ afx=audioeffect.cpp
 afxx=audioeffectx.cpp
 sdksrc="$SDKSRC/$main $SDKSRC/$afx $SDKSRC/$afxx"
 
+# Uncomment this to have Faust substitute the proper class name into the C++
+# code. NOTE: This requires that the basename of the dsp file is a valid C
+# identifier, which isn't guaranteed, so we disable this by default.
+#OPTIONS="$OPTIONS -cn \"$clsname\""
+
 # Create the temp directory.
 mkdir -p $tmpdir
 # Compile the Faust module.

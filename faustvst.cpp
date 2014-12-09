@@ -1302,7 +1302,7 @@ struct FaustPlugin {
   // Audio and MIDI process functions. The plugin should run these in the
   // appropriate real-time callbacks.
 
-  void process_audio(int n_samples, float **inputs, float **outputs)
+  void process_audio(int blocksz, float **inputs, float **outputs)
   {
     int n = dsp[0]->getNumInputs(), m = dsp[0]->getNumOutputs();
     AVOIDDENORMALS;
@@ -1314,12 +1314,12 @@ struct FaustPlugin {
       if (n == m) {
 	// copy inputs to outputs
 	for (int i = 0; i < m; i++)
-	  for (unsigned j = 0; j < n_samples; j++)
+	  for (unsigned j = 0; j < blocksz; j++)
 	    outputs[i][j] = inputs[i][j];
       } else {
 	// silence
 	for (int i = 0; i < m; i++)
-	  for (unsigned j = 0; j < n_samples; j++)
+	  for (unsigned j = 0; j < blocksz; j++)
 	    outputs[i][j] = 0.0f;
       }
       return;
@@ -1370,7 +1370,7 @@ struct FaustPlugin {
       }
     }
     // Initialize the output buffers.
-    if (n_samples < n_samples) {
+    if (n_samples < blocksz) {
       // We need to enlarge the buffers. We're not officially allowed to do
       // this here (presumably in the realtime thread), but since we usually
       // don't know the hosts's block size beforehand, there's really nothing
@@ -1379,11 +1379,11 @@ struct FaustPlugin {
       if (outbuf) {
 	for (int i = 0; i < m; i++) {
 	  outbuf[i] = (float*)realloc(outbuf[i],
-				      n_samples*sizeof(float));
+				      blocksz*sizeof(float));
 	  assert(outbuf[i]);
 	}
       }
-      n_samples = n_samples;
+      n_samples = blocksz;
     }
     if (outbuf) {
       // Polyphonic instrument: Mix the voices down to one signal.

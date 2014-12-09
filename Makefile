@@ -55,9 +55,9 @@ SDKSRC = $(firstword $(patsubst %/,%,$(dir $(wildcard $(addsuffix vstplugmain.cp
 #FAUST_FLAGS += -cn $(@:examples/%.cpp=%)
 
 # Default compilation flags.
-CFLAGS = -O3
+CXXFLAGS = -O3
 # Use this for debugging code instead.
-#CFLAGS = -g -O2
+#CXXFLAGS = -g -O2
 
 # Shared library suffix and compiler option to create a shared library.
 DLL = .so

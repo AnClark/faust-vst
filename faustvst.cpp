@@ -610,7 +610,37 @@ MTSTunings::MTSTunings(const char *path)
 
 #endif
 
-// Polyphonic Faust plugin data structure.
+#if FAUST_MIDICC
+static float ctrlval(const ui_elem_t &el, uint8_t v)
+{
+  // Translate the given MIDI controller value to the range and stepsize
+  // indicated by the Faust control.
+  switch (el.type) {
+  case UI_BUTTON: case UI_CHECK_BUTTON:
+    return (float)(v>=64);
+  default:
+    /* Continuous controllers. The problem here is that the range 0..127 is
+       not symmetric. We'd like to map 64 to the center of the range
+       (max-min)/2 and at the same time retain the full control range
+       min..max. So let's just pretend that there are 128 controller values
+       and map value 127 to the max value anyway. */
+    if (v==127)
+      return el.max;
+    else
+      // XXXFIXME: We might want to add proper quantization according to
+      // el.step here.
+      return el.min+(el.max-el.min)*v/128;
+  }
+}
+#endif
+
+/***************************************************************************/
+
+/* Polyphonic Faust plugin data structure. XXXTODO: At present this is just a
+   big struct which exposes all requisite data. Some more work is needed to
+   make the interface a bit more abstract and properly encapsulate the
+   internal data structures, so that implementation details can be changed
+   more easily. */
 
 struct FaustPlugin {
   const int maxvoices;	// maximum number of voices (zero if not an instrument)
@@ -623,21 +653,21 @@ struct FaustPlugin {
   int n_in, n_out;	// number of input and output control ports
   int poly, tuning;	// polyphony and tuning ports
   int *ctrls;		// Faust ui elements (indices into ui->elems)
-  float *ports;		// corresponding VST data
+  float *ports;		// port data (plugin-side control values)
   float *portvals;	// cached port data from the last run
-  float *midivals[16];	// per-midi channel data
+  float *midivals[16];	// per-channel midi data
   int *inctrls, *outctrls;	// indices for active and passive controls
   int freq, gain, gate;	// indices of voice controls
   const char **units;	// unit names (control meta data)
   unsigned n_samples;	// current block size
   float **outbuf;	// audio buffers for mixing down the voices
-  float **inbuf;	// dummy input buffer
-  std::map<uint8_t,int> ctrlmap; // MIDI controller map
+  float **inbuf;	// dummy input buffer used for retriggering notes
+  std::map<uint8_t,int> ctrlmap; // MIDI controller map (control meta data)
   // Current RPN MSB and LSB numbers, as set with controllers 101 and 100.
   uint8_t rpn_msb[16], rpn_lsb[16];
   // Current data entry MSB and LSB numbers, as set with controllers 6 and 38.
   uint8_t data_msb[16], data_lsb[16];
-  // Synth data (instruments only).
+  // Synth voice data (instruments only).
   VoiceData *vd;
 
   // Static methods. These all use static data so they can be invoked before
@@ -677,8 +707,9 @@ struct FaustPlugin {
     return meta->get("version", "0.0");
   }
 
-#if FAUST_MTS
   // Load a collection of sysex files with MTS tunings in ~/.faust/tuning.
+  static int n_tunings;
+#if FAUST_MTS
   static MTSTunings *mts;
 
   static MTSTunings *load_sysex_data()
@@ -713,6 +744,7 @@ struct FaustPlugin {
 	}
       }
 #endif
+      n_tunings = mts->tuning.size();
     }
     return mts;
   }
@@ -721,8 +753,8 @@ struct FaustPlugin {
   // The number of voices of an instrument plugin. We get this information
   // from the global meta data (nvoices key) of the dsp module if present, and
   // you can also override this setting at compile time by defining the
-  // NVOICES macro. If neither is defined then the plugin becomes a simple VST
-  // effect instead.
+  // NVOICES macro. If neither is defined or the value is zero then the plugin
+  // becomes a simple audio effect instead.
   static int numVoices()
   {
 #ifdef NVOICES
@@ -762,7 +794,7 @@ struct FaustPlugin {
     : maxvoices(num_voices), ndsps(num_voices<=0?1:num_voices),
       vd(num_voices>0?new VoiceData(num_voices):0)
   {
-    // Initialize static data if needed.
+    // Initialize static data.
     init_meta();
 #if FAUST_MTS
     // Synth: load tuning sysex data if present.
@@ -818,11 +850,13 @@ struct FaustPlugin {
       dsp[i]->buildUserInterface(ui[i]);
     }
     // The ports are numbered as follows: 0..k-1 are the control ports, then
-    // come the n audio input ports, then the m audio output ports, and finally
-    // the midi input port and the polyphony and tuning controls.
+    // come the n audio input ports, then the m audio output ports, and
+    // finally the midi input port and the polyphony and tuning controls. This
+    // mimics the port layout of faust-lv2, but should work fine with other
+    // kinds of plugin architectures as well.
     int k = ui[0]->nports, p = 0, q = 0;
     int n = dsp[0]->getNumInputs(), m = dsp[0]->getNumOutputs();
-    // Allocate tables for the control elements and their ports.
+    // Allocate tables for the built-in control elements and their ports.
     ctrls = (int*)calloc(k, sizeof(int));
     inctrls = (int*)calloc(k, sizeof(int));
     outctrls = (int*)calloc(k, sizeof(int));
@@ -841,7 +875,7 @@ struct FaustPlugin {
       const char *unit = NULL;
       switch (ui[0]->elems[i].type) {
       case UI_T_GROUP: case UI_H_GROUP: case UI_V_GROUP: case UI_END_GROUP:
-	// control groups
+	// control groups (ignored right now)
 	break;
       case UI_H_BARGRAPH: case UI_V_BARGRAPH:
 	// passive controls (output ports)
@@ -931,8 +965,8 @@ struct FaustPlugin {
       outbuf = (float**)calloc(m, sizeof(float*));
       assert(m == 0 || outbuf);
       // We start out with a blocksize of 512 samples here. Hopefully this is
-      // enough for most realtime hosts so that we can avoid reallocations later
-      // when we know what the actual blocksize is.
+      // enough for most realtime hosts so that we can avoid reallocations
+      // later when we know what the actual blocksize is.
       n_samples = 512;
       for (int i = 0; i < m; i++) {
 	outbuf[i] = (float*)malloc(n_samples*sizeof(float));
@@ -992,18 +1026,18 @@ struct FaustPlugin {
     fprintf(stderr, "%s: notes =", msg);
     for (uint8_t ch = 0; ch < 16; ch++)
       for (int note = 0; note < 128; note++)
-	if (notes[ch][note] >= 0)
-	  fprintf(stderr, " [%d] %d(#%d)", ch, note, notes[ch][note]);
-    fprintf(stderr, "\nqueued (%d):", queued.size());
+	if (vd->notes[ch][note] >= 0)
+	  fprintf(stderr, " [%d] %d(#%d)", ch, note, vd->notes[ch][note]);
+    fprintf(stderr, "\nqueued (%d):", vd->queued.size());
     for (int i = 0; i < nvoices; i++)
-      if (queued.find(i) != queued.end()) fprintf(stderr, " #%d", i);
-    fprintf(stderr, "\nused (%d):", n_used);
-    for (boost::circular_buffer<int>::iterator it = used_voices.begin();
-	 it != used_voices.end(); it++)
-      fprintf(stderr, " #%d->%d", *it, note_info[*it].note);
-    fprintf(stderr, "\nfree (%d):", n_free);
-    for (boost::circular_buffer<int>::iterator it = free_voices.begin();
-	 it != free_voices.end(); it++)
+      if (vd->queued.find(i) != vd->queued.end()) fprintf(stderr, " #%d", i);
+    fprintf(stderr, "\nused (%d):", vd->n_used);
+    for (boost::circular_buffer<int>::iterator it = vd->used_voices.begin();
+	 it != vd->used_voices.end(); it++)
+      fprintf(stderr, " #%d->%d", *it, vd->note_info[*it].note);
+    fprintf(stderr, "\nfree (%d):", vd->n_free);
+    for (boost::circular_buffer<int>::iterator it = vd->free_voices.begin();
+	 it != vd->free_voices.end(); it++)
       fprintf(stderr, " #%d", *it);
     fprintf(stderr, "\n");
   }
@@ -1230,10 +1264,363 @@ struct FaustPlugin {
       }
   }
 
+  // Plugin activation status. suspend() deactivates a plugin (disables audio
+  // processing), resume() reactivates it. Also, set_rate() changes the sample
+  // rate. Note that the audio and MIDI process functions (see below) can
+  // still be called in deactivated state, but this is optional. The plugin
+  // tries to do some reasonable processing in either case, no matter whether
+  // the host plugin architecture actually executes callbacks in suspended
+  // state or not.
+
+  void suspend()
+  {
+    active = false;
+    if (maxvoices > 0) all_notes_off();
+  }
+
+  void resume()
+  {
+    for (int i = 0; i < ndsps; i++)
+      dsp[i]->init(rate);
+    for (int i = 0, j = 0; i < ui[0]->nelems; i++) {
+      int p = ui[0]->elems[i].port;
+      if (p >= 0) {
+	float val = ui[0]->elems[i].init;
+	portvals[p] = val;
+      }
+    }
+    active = true;
+  }
+
+  void set_rate(int sr)
+  {
+    rate = sr;
+    for (int i = 0; i < ndsps; i++)
+      dsp[i]->init(rate);
+  }
+
+  // Audio and MIDI process functions. The plugin should run these in the
+  // appropriate real-time callbacks.
+
+  void process_audio(int n_samples, float **inputs, float **outputs)
+  {
+    int n = dsp[0]->getNumInputs(), m = dsp[0]->getNumOutputs();
+    AVOIDDENORMALS;
+    if (maxvoices > 0) queued_notes_off();
+    if (!active) {
+      // Depending on the plugin architecture, this code might never be
+      // invoked, since the plugin is deactivitated at this point. But let's
+      // do something reasonable here anyway.
+      if (n == m) {
+	// copy inputs to outputs
+	for (int i = 0; i < m; i++)
+	  for (unsigned j = 0; j < n_samples; j++)
+	    outputs[i][j] = inputs[i][j];
+      } else {
+	// silence
+	for (int i = 0; i < m; i++)
+	  for (unsigned j = 0; j < n_samples; j++)
+	    outputs[i][j] = 0.0f;
+      }
+      return;
+    }
+    // Handle changes in the polyphony control.
+    if (nvoices != poly && poly > 0 && poly <= maxvoices) {
+      for (int i = 0; i < nvoices; i++)
+	voice_off(i);
+      nvoices = poly;
+      // Reset the voice allocation.
+      memset(vd->notes, 0xff, sizeof(vd->notes));
+      vd->free_voices.clear();
+      vd->n_free = nvoices;
+      for (int i = 0; i < nvoices; i++)
+	vd->free_voices.push_back(i);
+      vd->used_voices.clear();
+      vd->n_used = 0;
+    } else
+      poly = nvoices;
+    // Only update the controls (of all voices simultaneously) if a port value
+    // actually changed. This is necessary to allow MIDI controllers to modify
+    // the values for individual MIDI channels (see processEvents below). Also
+    // note that this will be done *after* processing the MIDI controller data
+    // for the current audio block, so manual inputs can still override these.
+    bool is_instr = maxvoices > 0;
+    for (int i = 0; i < n_in; i++) {
+      int j = inctrls[i], k = ui[0]->elems[j].port;
+      float &oldval = portvals[k], newval = ports[k];
+      if (newval != oldval) {
+	if (is_instr) {
+	  // instrument: update running voices
+	  for (boost::circular_buffer<int>::iterator it =
+		 vd->used_voices.begin();
+	       it != vd->used_voices.end(); it++) {
+	    int i = *it;
+	    *ui[i]->elems[j].zone = newval;
+	  }
+	} else {
+	  // simple effect: here we only have a single dsp instance
+	  *ui[0]->elems[j].zone = newval;
+	}
+	// also update the MIDI controller data for all channels (manual
+	// control input is always omni)
+	for (int ch = 0; ch < 16; ch++)
+	  midivals[ch][k] = newval;
+	// record the new value
+	oldval = newval;
+      }
+    }
+    // Initialize the output buffers.
+    if (n_samples < n_samples) {
+      // We need to enlarge the buffers. We're not officially allowed to do
+      // this here (presumably in the realtime thread), but since we usually
+      // don't know the hosts's block size beforehand, there's really nothing
+      // else that we can do. Let's just hope that doing this once suffices,
+      // then hopefully noone will notice.
+      if (outbuf) {
+	for (int i = 0; i < m; i++) {
+	  outbuf[i] = (float*)realloc(outbuf[i],
+				      n_samples*sizeof(float));
+	  assert(outbuf[i]);
+	}
+      }
+      n_samples = n_samples;
+    }
+    if (outbuf) {
+      // Polyphonic instrument: Mix the voices down to one signal.
+      for (int i = 0; i < m; i++)
+	for (unsigned j = 0; j < n_samples; j++)
+	  outputs[i][j] = 0.0f;
+      for (int l = 0; l < nvoices; l++) {
+	// Let Faust do all the hard work.
+	dsp[l]->compute(n_samples, inputs, outbuf);
+	for (int i = 0; i < m; i++)
+	  for (unsigned j = 0; j < n_samples; j++)
+	    outputs[i][j] += outbuf[i][j];
+      }
+    } else {
+      // Simple effect: We can write directly to the output buffer.
+      dsp[0]->compute(n_samples, inputs, outputs);
+    }
+    // Finally grab the passive controls and write them back to the
+    // corresponding control ports. NOTE: Depending on the plugin
+    // architecture, this might require a host call to get the control GUI
+    // updated in real-time (if the host supports this at all).
+    // FIXME: It's not clear how to aggregate the data of the different
+    // voices. We compute the maximum of each control for now.
+    for (int i = 0; i < n_out; i++) {
+      int j = outctrls[i], k = ui[0]->elems[j].port;
+      float *z = ui[0]->elems[j].zone;
+      ports[k] = *z;
+      for (int l = 1; l < nvoices; l++) {
+	float *z = ui[l]->elems[j].zone;
+	if (ports[k] < *z)
+	  ports[k] = *z;
+      }
+    }
+    // Keep track of the last gates set for each voice, so that voices can be
+    // forcibly retriggered if needed.
+    if (gate >= 0)
+      for (int i = 0; i < nvoices; i++)
+	vd->lastgate[i] =
+	  *ui[i]->elems[gate].zone;
+  }
+
+  // This processes just a single MIDI message, so to process an entire series
+  // of MIDI events you'll have to loop over the event data in the plugin's
+  // MIDI callback. XXXTODO: Sample-accurate processing of MIDI events.
+  
+  void process_midi(unsigned char *data, int sz)
+  {
+#if DEBUG_MIDI
+    fprintf(stderr, "midi ev (%d bytes):", sz);
+    for (int i = 0; i < sz; i++)
+      fprintf(stderr, " 0x%0x", data[i]);
+    fprintf(stderr, "\n");
+#endif
+    uint8_t status = data[0] & 0xf0, chan = data[0] & 0x0f;
+    bool is_instr = maxvoices > 0;
+    switch (status) {
+    case 0x90: {
+      if (!is_instr) break;
+      // note on
+#if DEBUG_NOTES
+      fprintf(stderr, "note-on  chan %d, note %d, vel %d\n", chan+1,
+	      data[1], data[2]);
+#endif
+      if (data[2] == 0) goto note_off;
+      alloc_voice(chan, data[1], data[2]);
+      break;
+    }
+    case 0x80: {
+      if (!is_instr) break;
+      // note off
+#if DEBUG_NOTES
+      fprintf(stderr, "note-off chan %d, note %d, vel %d\n", chan+1,
+	      data[1], data[2]);
+#endif
+      note_off:
+      dealloc_voice(chan, data[1], data[2]);
+      break;
+    }
+    case 0xe0: {
+      if (!is_instr) break;
+      // pitch bend
+      // data[1] is LSB, data[2] MSB, range is 0..0x3fff (which maps to
+      // -2..+2 semitones by default), center point is 0x2000 = 8192
+      int val = data[1] | (data[2]<<7);
+      vd->bend[chan] =
+	(val-0x2000)/8192.0f*vd->range[chan];
+#if DEBUG_MIDICC
+      fprintf(stderr, "pitch-bend (chan %d): %g cent\n", chan+1,
+	      vd->bend[chan]*100.0);
+#endif
+      update_voices(chan);
+      break;
+    }
+    case 0xb0: {
+      // controller change
+      switch (data[1]) {
+      case 120: case 123:
+	if (!is_instr) break;
+	// all-sound-off and all-notes-off controllers (these are treated
+	// the same in the current implementation)
+	all_notes_off(chan);
+#if DEBUG_MIDICC
+	fprintf(stderr, "all-notes-off (chan %d)\n", chan+1);
+#endif
+	break;
+      case 121:
+	// all-controllers-off (in the current implementation, this just
+	// resets the RPN-related controllers)
+	data_msb[chan] = data_lsb[chan] = 0;
+	rpn_msb[chan] = rpn_lsb[chan] = 0x7f;
+#if DEBUG_MIDICC
+	fprintf(stderr, "all-controllers-off (chan %d)\n", chan+1);
+#endif
+	break;
+      case 101: case 100:
+	// RPN MSB/LSB
+	if (data[1] == 101)
+	  rpn_msb[chan] = data[2];
+	else
+	  rpn_lsb[chan] = data[2];
+	break;
+      case 6: case 38:
+	// data entry coarse/fine
+	if (data[1] == 6)
+	  data_msb[chan] = data[2];
+	else
+	  data_lsb[chan] = data[2];
+	goto rpn;
+      case 96: case 97:
+	// data increment/decrement
+	/* NOTE: The specification of these controllers is a complete
+	   mess. Originally, the MIDI specification didn't have anything
+	   to say about their exact behaviour at all. Nowadays, the
+	   behaviour depends on which RPN or NRPN is being modified, which
+	   is also rather confusing. Fortunately, as we only handle RPNs
+	   0..2 here anyway, it's sufficient to assume the MSB for RPN #2
+	   (channel coarse tuning) and the LSB otherwise. */
+	if (rpn_msb[chan] == 0 && rpn_lsb[chan] == 2) {
+	  // modify the MSB
+	  if (data[1] == 96 && data_msb[chan] < 0x7f)
+	    data_msb[chan]++;
+	  else if (data[1] == 97 && data_msb[chan] > 0)
+	    data_msb[chan]--;
+	} else {
+	  // modify the LSB
+	  if (data[1] == 96 && data_lsb[chan] < 0x7f)
+	    data_lsb[chan]++;
+	  else if (data[1] == 97 && data_lsb[chan] > 0)
+	    data_lsb[chan]--;
+	}
+      rpn:
+	if (!is_instr) break;
+	if (rpn_msb[chan] == 0) {
+	  switch (rpn_lsb[chan]) {
+	  case 0:
+	    // pitch bend range, coarse value is in semitones, fine value
+	    // in cents
+	    vd->range[chan] = data_msb[chan]+
+	      data_lsb[chan]/100.0;
+#if DEBUG_RPN
+	    fprintf(stderr, "pitch-bend-range (chan %d): %g cent\n", chan+1,
+		    vd->range[chan]*100.0);
+#endif
+	    break;
+	  case 1:
+	    {
+	      // channel fine tuning (14 bit value, range -100..+100 cents)
+	      int value = (data_msb[chan]<<7) |
+		data_lsb[chan];
+	      vd->fine[chan] = (value-8192)/8192.0f;
+	    }
+	    goto master_tune;
+	  case 2:
+	    // channel coarse tuning (only msb is used, range -64..+63
+	    // semitones)
+	    vd->coarse[chan] = data_msb[chan]-64;
+	  master_tune:
+	    vd->tune[chan] = vd->coarse[chan]+
+	      vd->fine[chan];
+#if DEBUG_RPN
+	    fprintf(stderr, "master-tuning (chan %d): %g cent\n", chan+1,
+		    vd->tune[chan]*100.0);
+#endif
+	    update_voices(chan);
+	    break;
+	  default:
+	    break;
+	  }
+	}
+	break;
+      default: {
+#if FAUST_MIDICC
+	// interpret all other controller changes according to the MIDI
+	// controller map defined in the Faust plugin itself
+	std::map<uint8_t,int>::iterator it = ctrlmap.find(data[1]);
+	if (it != ctrlmap.end()) {
+	  // defined MIDI controller
+	  int j = inctrls[it->second],
+	    k = ui[0]->elems[j].port;
+	  float val = ctrlval(ui[0]->elems[j], data[2]);
+	  midivals[chan][k] = val;
+	  if (is_instr) {
+	    // instrument: update running voices on this channel
+	    for (boost::circular_buffer<int>::iterator it =
+		   vd->used_voices.begin();
+		 it != vd->used_voices.end(); it++) {
+	      int i = *it;
+	      if (vd->note_info[i].ch == chan)
+		*ui[i]->elems[j].zone = val;
+	    }
+	  } else {
+	    // simple effect: here we only have a single dsp instance and
+	    // we're operating in omni mode, so we just update the control no
+	    // matter what the midi channel is
+	    *ui[0]->elems[j].zone = val;
+	  }
+#if DEBUG_MIDICC
+	  fprintf(stderr, "ctrl-change chan %d, ctrl %d, val %d\n", chan+1,
+		  data[1], data[2]);
+#endif
+	}
+#endif
+	break;
+      }
+      }
+      break;
+    }
+    default:
+      break;
+    }
+  }
+
   // Process an MTS sysex message and update the control values accordingly.
 
-  void mts_sysex(uint8_t *data, int sz)
+  void process_sysex(uint8_t *data, int sz)
   {
+    if (!data || sz < 2) return;
 #if DEBUG_MIDI
     fprintf(stderr, "midi sysex (%d bytes):", sz);
     for (int i = 0; i < sz; i++)
@@ -1309,9 +1696,37 @@ struct FaustPlugin {
       }
     }
   }
+
+  // Change to a given preloaded tuning. The given tuning number may be in the
+  // range 1..FaustPlugin::n_tunings, zero denotes the default tuning (equal
+  // temperament). This is only supported if FAUST_MTS is defined at compile
+  // time.
+
+  void change_tuning(int num)
+  {
+#if FAUST_MTS
+    if (!mts || num == tuning) return;
+    if (num < 0) num = 0;
+    if (num > mts->tuning.size())
+      num = mts->tuning.size();
+    tuning = num;
+    if (tuning > 0) {
+      process_sysex(mts->tuning[tuning-1].data,
+		    mts->tuning[tuning-1].len);
+    } else {
+      memset(vd->tuning, 0, sizeof(vd->tuning));
+#if DEBUG_MTS
+      fprintf(stderr,
+	      "octave-tuning-default (chan 1-16): equal temperament\n");
+#endif
+#endif
+    }
+  }
+
 };
 
 Meta *FaustPlugin::meta = 0;
+int FaustPlugin::n_tunings = 0;
 #if FAUST_MTS
 MTSTunings *FaustPlugin::mts = 0;
 #endif
@@ -1431,8 +1846,8 @@ static uint32_t idhash(const char *s)
   const uint32_t seed = 4711;
   // XXXFIXME: The rules for valid-formed VST ids don't seem to be very
   // clear. Can it be just any 32 bit number? But it looks like at least the
-  // msb should be 0 here, so we enforce that. Some VST hosts such as Carla
-  // display the id as zero otherwise.
+  // most significant bit should be 0 here, so we enforce that. (Some VST
+  // hosts such as Carla display the id as zero otherwise.)
   return MurmurHash2(s, strlen(s), seed) & 0x7fffffff;
 }
 
@@ -1463,15 +1878,19 @@ VSTWrapper::VSTWrapper(audioMasterCallback audioMaster)
     // XXXFIXME: Maybe do something more clever for the unique id.
     setUniqueID((VstInt32)idhash(dsp_name));
   }
-  // We only provide one program (set of controller values).
+  // We only provide one "program" (a.k.a. built-in control preset), which
+  // corresponds to the initial input control values in the Faust UI. Faust
+  // has no built-in support for presets and we don't try to emulate that here
+  // either. Most VST hosts will provide you with a way to save and restore
+  // presets in a number of different formats, such as fxb and fxp files.
   curProgram = 0;
   setProgramName("Default");
-  // Initialize the program storage. At present, we only provide one program
-  // which is filled with the default input control values.
+  // Initialize the program storage.
   defprog = (float*)calloc(plugin->n_in, sizeof(float));
   assert(plugin->n_in == 0 || defprog);
-  // At this point, the first n_in elements of plugin->ports are filled with
-  // the initial input control values, copy them over to the default program.
+  // At this point, the first n_in elements of plugin->ports should already be
+  // filled with the initial input control values, copy them over to the
+  // default program.
   memcpy(defprog, plugin->ports, plugin->n_in*sizeof(float));
 }
 
@@ -1485,49 +1904,31 @@ VSTWrapper::~VSTWrapper()
 
 void VSTWrapper::suspend()
 {
-  plugin->active = false;
-  if (plugin->maxvoices > 0) plugin->all_notes_off();
+  plugin->suspend();
 }
 
 void VSTWrapper::resume()
 {
   plugin->rate = getSampleRate();
-  for (int i = 0; i < plugin->ndsps; i++)
-    plugin->dsp[i]->init(plugin->rate);
-  for (int i = 0, j = 0; i < plugin->ui[0]->nelems; i++) {
-    int p = plugin->ui[0]->elems[i].port;
-    if (p >= 0) {
-      float val = plugin->ui[0]->elems[i].init;
-      plugin->portvals[p] = val;
-    }
-  }
-  plugin->active = true;
+  plugin->resume();
 }
 
 void VSTWrapper::setSampleRate(float sampleRate)
 {
   AudioEffect::setSampleRate(sampleRate);
-  plugin->rate = sampleRate;
-  for (int i = 0; i < plugin->ndsps; i++)
-    plugin->dsp[i]->init(plugin->rate);
+  plugin->set_rate(sampleRate);
 }
 
-// programs (sets of controller values; we only provide one)
+// programs a.k.a. built-in presets (see above)
 
 void VSTWrapper::setProgram(VstInt32 prog)
 {
   if (prog < 0 || prog >= 1) return;
   curProgram = prog;
   memcpy(plugin->ports, defprog, plugin->n_in*sizeof(float));
+  // Also reset the polyphony and tuning controls to their default values.
   plugin->poly = plugin->maxvoices/2;
-  plugin->tuning = 0;
-  if (plugin->vd) {
-    memset(plugin->vd->tuning, 0, sizeof(plugin->vd->tuning));
-#if DEBUG_MTS
-    fprintf(stderr,
-	    "octave-tuning-default (chan 1-16): equal temperament\n");
-#endif
-  }
+  plugin->change_tuning(0);
   // Some hosts may require this to force a GUI update of the parameters.
   updateDisplay();
 }
@@ -1561,11 +1962,16 @@ void VSTWrapper::getParameterName(VstInt32 index, char *label)
   if (index < k) {
     int j = plugin->ctrls[index];
     assert(index == plugin->ui[0]->elems[j].port);
+    // Note that the VST spec mandates a maximum size of kVstMaxParamStrLen
+    // for the label string, which is a rather small constant. This seems
+    // overly restrictive, however, given that virtually all VST hosts provide
+    // for much longer names. We allow 32 characters here which is hopefully
+    // on the safe side.
     vst_strncpy(label, plugin->ui[0]->elems[j].label, 32);
   } else if (index == k && plugin->maxvoices > 0) {
     strcpy(label, "polyphony");
 #if FAUST_MTS
-  } else if (index == k+1 && plugin->mts && plugin->mts->tuning.size() > 0) {
+  } else if (index == k+1 && plugin->n_tunings > 0) {
     strcpy(label, "tuning");
 #endif
   }
@@ -1579,8 +1985,29 @@ void VSTWrapper::getParameterLabel(VstInt32 index, char *label)
     int j = plugin->ctrls[index];
     assert(index == plugin->ui[0]->elems[j].port);
     if (plugin->units[index])
+      // Allow for up to 32 characters; see the remarks concerning
+      // kVstMaxParamStrLen above.
       vst_strncpy(label, plugin->units[index], 32);
   }
+}
+
+// NOTE: VST parameters are always floats with unit range (0..1). So we need
+// to convert between Faust control values with given range/stepsize and the
+// VST range here. We use the following quantization algorithm for mapping VST
+// to Faust control values.
+
+static double quantize(double x, double d)
+{
+  if (d == 0.0) return x;
+  // Round off x to the nearest increment of d. Note that this may produce
+  // rounding artifacts if d is some power of 10 less than 0, since these
+  // can't be represented exactly in binary.
+  double i;
+  if (x*d < 0.0)
+    modf(x/d-0.5, &i);
+  else
+    modf(x/d+0.5, &i);
+  return i*d;
 }
 
 void VSTWrapper::getParameterDisplay(VstInt32 index, char *text)
@@ -1594,7 +2021,7 @@ void VSTWrapper::getParameterDisplay(VstInt32 index, char *text)
   } else if (index == k && plugin->maxvoices > 0) {
     sprintf(text, "%d voices", plugin->poly);
 #if FAUST_MTS
-  } else if (index == k+1 && plugin->mts && plugin->mts->tuning.size() > 0) {
+  } else if (index == k+1 && plugin->n_tunings > 0) {
     sprintf(text, "%d %s", plugin->tuning,
 	    plugin->tuning>0?plugin->mts->tuning[plugin->tuning-1].name:
 	    "default");
@@ -1617,25 +2044,11 @@ float VSTWrapper::getParameter(VstInt32 index)
   } else if (index == k && plugin->maxvoices > 0) {
     return (float)plugin->poly/(float)plugin->maxvoices;
 #if FAUST_MTS
-  } else if (index == k+1 && plugin->mts && plugin->mts->tuning.size() > 0) {
+  } else if (index == k+1 && plugin->n_tunings > 0) {
     return (float)plugin->tuning/(float)plugin->mts->tuning.size();
 #endif
   } else
     return 0.0f;
-}
-
-static double quantize(double x, double d)
-{
-  if (d == 0.0) return x;
-  // Round off x to the nearest increment of d. Note that this may produce
-  // rounding artifacts if d is some power of 10 other than 1, since these
-  // can't be represented exactly in binary.
-  double i;
-  if (x*d < 0.0)
-    modf(x/d-0.5, &i);
-  else
-    modf(x/d+0.5, &i);
-  return i*d;
 }
 
 void VSTWrapper::setParameter(VstInt32 index, float value)
@@ -1653,27 +2066,16 @@ void VSTWrapper::setParameter(VstInt32 index, float value)
     float val = (min == max)?min:min+quantize(value*(max-min), step);
     if (fabs(val) < fabs(step) || fabs(val)/fabs(max-min) < eps)
       val = 0.0;
+    // We only need to update the port value here, the ui values are then
+    // updated automatically as needed in the process_audio() callback.
     plugin->ports[index] = val;
   } else if (index == k && plugin->maxvoices > 0) {
     plugin->poly = (int)quantize((value*plugin->maxvoices), 1);
     if (plugin->poly <= 0) plugin->poly = 1;
 #if FAUST_MTS
-  } else if (index == k+1 && plugin->mts && plugin->mts->tuning.size() > 0) {
+  } else if (index == k+1 && plugin->n_tunings > 0) {
     int tuning = (int)quantize((value*plugin->mts->tuning.size()), 1);
-    if (tuning != plugin->tuning) {
-      plugin->tuning = tuning;
-      if (tuning > 0) {
-	plugin->mts_sysex(plugin->mts->tuning[tuning-1].data,
-			  plugin->mts->tuning[tuning-1].len);
-      } else {
-	// reset to default tuning (equal temperament)
-	memset(plugin->vd->tuning, 0, sizeof(plugin->vd->tuning));
-#if DEBUG_MTS
-      fprintf(stderr,
-	      "octave-tuning-default (chan 1-16): equal temperament\n");
-#endif
-      }
-    }
+    plugin->change_tuning(tuning);
 #endif
   }
 }
@@ -1710,21 +2112,7 @@ bool VSTWrapper::string2parameter(VstInt32 index, char *text)
 #if FAUST_MTS
   } else if (index == k+1 && plugin->mts &&
 	     plugin->mts->tuning.size() > 0) {
-    int val = atoi(text);
-    if (val < 0) val = 0;
-    if (val > plugin->mts->tuning.size())
-      val = plugin->mts->tuning.size();
-    plugin->tuning = val;
-    if (plugin->tuning > 0) {
-      plugin->mts_sysex(plugin->mts->tuning[plugin->tuning-1].data,
-			plugin->mts->tuning[plugin->tuning-1].len);
-    } else {
-      memset(plugin->vd->tuning, 0, sizeof(plugin->vd->tuning));
-#if DEBUG_MTS
-      fprintf(stderr,
-	      "octave-tuning-default (chan 1-16): equal temperament\n");
-#endif
-    }
+    plugin->change_tuning(atoi(text));
 #endif
   } else
     return false;
@@ -1811,155 +2199,12 @@ VstInt32 VSTWrapper::canDo(char *text)
 void VSTWrapper::processReplacing(float **inputs, float **outputs,
 				  VstInt32 n_samples)
 {
-  int n = plugin->dsp[0]->getNumInputs(), m = plugin->dsp[0]->getNumOutputs();
-  AVOIDDENORMALS;
-  if (plugin->maxvoices > 0) plugin->queued_notes_off();
-#if 1
-  if (!plugin->active) {
-    // Presumably this code will never be invoked, since processReplacing is
-    // supposed to be called in resumed state only. But let's do something
-    // reasonable here anyway, in case a VST host happens to implement this
-    // differently.
-    if (n == m) {
-      // copy inputs to outputs
-      for (int i = 0; i < m; i++)
-	for (unsigned j = 0; j < n_samples; j++)
-	  outputs[i][j] = inputs[i][j];
-    } else {
-      // silence
-      for (int i = 0; i < m; i++)
-	for (unsigned j = 0; j < n_samples; j++)
-	  outputs[i][j] = 0.0f;
-    }
-    return;
-  }
-#endif
-  // Handle changes in the polyphony control.
-  int nvoices = plugin->poly;
-  if (plugin->nvoices != nvoices && nvoices > 0 &&
-      nvoices <= plugin->maxvoices) {
-    for (int i = 0; i < plugin->nvoices; i++)
-      plugin->voice_off(i);
-    plugin->nvoices = nvoices;
-    // Reset the voice allocation.
-    memset(plugin->vd->notes, 0xff, sizeof(plugin->vd->notes));
-    plugin->vd->free_voices.clear();
-    plugin->vd->n_free = nvoices;
-    for (int i = 0; i < nvoices; i++)
-      plugin->vd->free_voices.push_back(i);
-    plugin->vd->used_voices.clear();
-    plugin->vd->n_used = 0;
-  } else
-    plugin->poly = plugin->nvoices;
-  // Only update the controls (of all voices simultaneously) if a port value
-  // actually changed. This is necessary to allow MIDI controllers to modify
-  // the values for individual MIDI channels (see processEvents below). Also
-  // note that this will be done *after* processing the MIDI controller data
-  // for the current audio block, so manual inputs can still override these.
-  bool is_instr = plugin->maxvoices > 0;
-  for (int i = 0; i < plugin->n_in; i++) {
-    int j = plugin->inctrls[i], k = plugin->ui[0]->elems[j].port;
-    float &oldval = plugin->portvals[k], newval = plugin->ports[k];
-    if (newval != oldval) {
-      if (is_instr) {
-	// instrument: update running voices
-	for (boost::circular_buffer<int>::iterator it =
-	       plugin->vd->used_voices.begin();
-	     it != plugin->vd->used_voices.end(); it++) {
-	  int i = *it;
-	  *plugin->ui[i]->elems[j].zone = newval;
-	}
-      } else {
-	// simple effect: here we only have a single dsp instance
-	*plugin->ui[0]->elems[j].zone = newval;
-      }
-      // also update the MIDI controller data for all channels (manual control
-      // input is always omni)
-      for (int ch = 0; ch < 16; ch++)
-	plugin->midivals[ch][k] = newval;
-      // record the new value
-      oldval = newval;
-    }
-  }
-  // Initialize the output buffers.
-  if (plugin->n_samples < n_samples) {
-    // We need to enlarge the buffers. We're not officially allowed to do this
-    // here (presumably in the realtime thread), but since we can't know the
-    // hosts's block size beforehand, there's really nothing else that we can
-    // do. Let's just hope that doing this once suffices, then hopefully
-    // noone will notice.
-    if (plugin->outbuf) {
-      for (int i = 0; i < m; i++) {
-	plugin->outbuf[i] = (float*)realloc(plugin->outbuf[i],
-					    n_samples*sizeof(float));
-	assert(plugin->outbuf[i]);
-      }
-    }
-    plugin->n_samples = n_samples;
-  }
-  if (plugin->outbuf) {
-    // Polyphonic instrument: Mix the voices down to one signal.
-    for (int i = 0; i < m; i++)
-      for (unsigned j = 0; j < n_samples; j++)
-	outputs[i][j] = 0.0f;
-    for (int l = 0; l < nvoices; l++) {
-      // Let Faust do all the hard work.
-      plugin->dsp[l]->compute(n_samples, inputs, plugin->outbuf);
-      for (int i = 0; i < m; i++)
-	for (unsigned j = 0; j < n_samples; j++)
-	  outputs[i][j] += plugin->outbuf[i][j];
-    }
-  } else {
-    // Simple effect: We can write directly to the output buffer. Let Faust do
-    // all the hard work.
-    plugin->dsp[0]->compute(n_samples, inputs, outputs);
-  }
-  // Finally grab the passive controls and write them back to the
-  // corresponding control ports. FIXME: It's not clear how to aggregate the
-  // data of the different voices. We compute the maximum of each control for
-  // now. XXXFIXME: Code from LV2 architecture, does this even work with VST?
-  for (int i = 0; i < plugin->n_out; i++) {
-    int j = plugin->outctrls[i], k = plugin->ui[0]->elems[j].port;
-    float *z = plugin->ui[0]->elems[j].zone;
-    plugin->ports[k] = *z;
-    for (int l = 1; l < nvoices; l++) {
-      float *z = plugin->ui[l]->elems[j].zone;
-      if (plugin->ports[k] < *z)
-	plugin->ports[k] = *z;
-    }
-  }
+  plugin->process_audio(n_samples, inputs, outputs);
+  // Some hosts may require this to force a GUI update of the passive
+  // controls. XXXFIXME: Alas, some hosts don't seem to handle output
+  // parameters at all (e.g., Tracktion).
   if (plugin->n_out > 0) updateDisplay();
-  // Keep track of the last gates set for each voice, so that voices can be
-  // forcibly retriggered if needed.
-  if (plugin->gate >= 0)
-    for (int i = 0; i < nvoices; i++)
-      plugin->vd->lastgate[i] =
-	*plugin->ui[i]->elems[plugin->gate].zone;
 }
-
-#if FAUST_MIDICC
-static float ctrlval(const ui_elem_t &el, uint8_t v)
-{
-  // Translate the given MIDI controller value to the range and stepsize
-  // indicated by the Faust control.
-  switch (el.type) {
-  case UI_BUTTON: case UI_CHECK_BUTTON:
-    return (float)(v>=64);
-  default:
-    /* Continuous controllers. The problem here is that the range 0..127 is
-       not symmetric. We'd like to map 64 to the center of the range
-       (max-min)/2 and at the same time retain the full control range
-       min..max. So let's just pretend that there are 128 controller values
-       and map value 127 to the max value anyway. */
-    if (v==127)
-      return el.max;
-    else
-      // XXXFIXME: We might want to add proper quantization according to
-      // el.step here.
-      return el.min+(el.max-el.min)*v/128;
-  }
-}
-#endif
 
 VstInt32 VSTWrapper::processEvents(VstEvents* events)
 {
@@ -1977,204 +2222,17 @@ VstInt32 VSTWrapper::processEvents(VstEvents* events)
       // sample-accurate note onsets.
       VstInt32 frames = ev->deltaFrames;
 #endif
-#if DEBUG_MIDI
-      fprintf(stderr, "midi ev (%d bytes):", 4);
-      for (int i = 0; i < 4; i++)
-	fprintf(stderr, " 0x%0x", data[i]);
 #if 0
-      fprintf(stderr, " (length = %d, offset = %d, detune = %d, off velocity = %d)", ev->noteLength, ev->noteOffset, (int)(signed char)ev->detune, (int)ev->noteOffVelocity);
+      fprintf(stderr, "ev length = %d, offset = %d, detune = %d, off velocity = %d\n", ev->noteLength, ev->noteOffset, (int)(signed char)ev->detune, (int)ev->noteOffVelocity);
 #endif
-      fprintf(stderr, "\n");
-#endif
-      uint8_t status = data[0] & 0xf0, chan = data[0] & 0x0f;
-      bool is_instr = plugin->maxvoices > 0;
-      switch (status) {
-      case 0x90: {
-	if (!is_instr) break;
-	// note on
-#if DEBUG_NOTES
-	fprintf(stderr, "note-on  chan %d, note %d, vel %d\n", chan+1,
-		data[1], data[2]);
-#endif
-	if (data[2] == 0) goto note_off;
-	plugin->alloc_voice(chan, data[1], data[2]);
-	break;
-      }
-      case 0x80: {
-	if (!is_instr) break;
-	// note off
-#if DEBUG_NOTES
-	fprintf(stderr, "note-off chan %d, note %d, vel %d\n", chan+1,
-		data[1], data[2]);
-#endif
-	note_off:
-	plugin->dealloc_voice(chan, data[1], data[2]);
-	break;
-      }
-      case 0xe0: {
-	if (!is_instr) break;
-	// pitch bend
-	// data[1] is LSB, data[2] MSB, range is 0..0x3fff (which maps to
-	// -2..+2 semitones by default), center point is 0x2000 = 8192
-	int val = data[1] | (data[2]<<7);
-	plugin->vd->bend[chan] =
-	  (val-0x2000)/8192.0f*plugin->vd->range[chan];
-#if DEBUG_MIDICC
-	fprintf(stderr, "pitch-bend (chan %d): %g cent\n", chan+1,
-		plugin->vd->bend[chan]*100.0);
-#endif
-	plugin->update_voices(chan);
-	break;
-      }
-      case 0xb0: {
-	// controller change
-	switch (data[1]) {
-	case 120: case 123:
-	  if (!is_instr) break;
-	  // all-sound-off and all-notes-off controllers (these are treated
-	  // the same in the current implementation)
-	  plugin->all_notes_off(chan);
-#if DEBUG_MIDICC
-	  fprintf(stderr, "all-notes-off (chan %d)\n", chan+1);
-#endif
-	  break;
-	case 121:
-	  // all-controllers-off (in the current implementation, this just
-	  // resets the RPN-related controllers)
-	  plugin->data_msb[chan] = plugin->data_lsb[chan] = 0;
-	  plugin->rpn_msb[chan] = plugin->rpn_lsb[chan] = 0x7f;
-#if DEBUG_MIDICC
-	  fprintf(stderr, "all-controllers-off (chan %d)\n", chan+1);
-#endif
-	  break;
-	case 101: case 100:
-	  // RPN MSB/LSB
-	  if (data[1] == 101)
-	    plugin->rpn_msb[chan] = data[2];
-	  else
-	    plugin->rpn_lsb[chan] = data[2];
-	  break;
-	case 6: case 38:
-	  // data entry coarse/fine
-	  if (data[1] == 6)
-	    plugin->data_msb[chan] = data[2];
-	  else
-	    plugin->data_lsb[chan] = data[2];
-	  goto rpn;
-	case 96: case 97:
-	  // data increment/decrement
-	  /* NOTE: The specification of these controllers is a complete
-	     mess. Originally, the MIDI specification didn't have anything
-	     to say about their exact behaviour at all. Nowadays, the
-	     behaviour depends on which RPN or NRPN is being modified, which
-	     is also rather confusing. Fortunately, as we only handle RPNs
-	     0..2 here anyway, it's sufficient to assume the MSB for RPN #2
-	     (channel coarse tuning) and the LSB otherwise. */
-	  if (plugin->rpn_msb[chan] == 0 && plugin->rpn_lsb[chan] == 2) {
-	    // modify the MSB
-	    if (data[1] == 96 && plugin->data_msb[chan] < 0x7f)
-	      plugin->data_msb[chan]++;
-	    else if (data[1] == 97 && plugin->data_msb[chan] > 0)
-	      plugin->data_msb[chan]--;
-	  } else {
-	    // modify the LSB
-	    if (data[1] == 96 && plugin->data_lsb[chan] < 0x7f)
-	      plugin->data_lsb[chan]++;
-	    else if (data[1] == 97 && plugin->data_lsb[chan] > 0)
-	      plugin->data_lsb[chan]--;
-	  }
-	rpn:
-	  if (!is_instr) break;
-	  if (plugin->rpn_msb[chan] == 0) {
-	    switch (plugin->rpn_lsb[chan]) {
-	    case 0:
-	      // pitch bend range, coarse value is in semitones, fine value
-	      // in cents
-	      plugin->vd->range[chan] = plugin->data_msb[chan]+
-		plugin->data_lsb[chan]/100.0;
-#if DEBUG_RPN
-	      fprintf(stderr, "pitch-bend-range (chan %d): %g cent\n", chan+1,
-		      plugin->vd->range[chan]*100.0);
-#endif
-	      break;
-	    case 1:
-	      {
-		// channel fine tuning (14 bit value, range -100..+100 cents)
-		int value = (plugin->data_msb[chan]<<7) |
-		  plugin->data_lsb[chan];
-		plugin->vd->fine[chan] = (value-8192)/8192.0f;
-	      }
-	      goto master_tune;
-	    case 2:
-	      // channel coarse tuning (only msb is used, range -64..+63
-	      // semitones)
-	      plugin->vd->coarse[chan] = plugin->data_msb[chan]-64;
-	    master_tune:
-	      plugin->vd->tune[chan] = plugin->vd->coarse[chan]+
-		plugin->vd->fine[chan];
-#if DEBUG_RPN
-	      fprintf(stderr, "master-tuning (chan %d): %g cent\n", chan+1,
-		      plugin->vd->tune[chan]*100.0);
-#endif
-	      plugin->update_voices(chan);
-	      break;
-	    default:
-	      break;
-	    }
-	  }
-	  break;
-	default: {
-#if FAUST_MIDICC
-	  // interpret all other controller changes according to the MIDI
-	  // controller map defined in the Faust plugin itself
-	  std::map<uint8_t,int>::iterator it = plugin->ctrlmap.find(data[1]);
-	  if (it != plugin->ctrlmap.end()) {
-	    // defined MIDI controller
-	    int j = plugin->inctrls[it->second],
-	      k = plugin->ui[0]->elems[j].port;
-	    float val = ctrlval(plugin->ui[0]->elems[j], data[2]);
-	    plugin->midivals[chan][k] = val;
-	    if (is_instr) {
-	      // instrument: update running voices on this channel
-	      for (boost::circular_buffer<int>::iterator it =
-		     plugin->vd->used_voices.begin();
-		   it != plugin->vd->used_voices.end(); it++) {
-		int i = *it;
-		if (plugin->vd->note_info[i].ch == chan)
-		  *plugin->ui[i]->elems[j].zone = val;
-	      }
-	    } else {
-	      // simple effect: here we only have a single dsp instance and
-	      // we're operating in omni mode, so we just update the control no
-	      // matter what the midi channel is
-	      *plugin->ui[0]->elems[j].zone = val;
-	    }
-#if DEBUG_MIDICC
-	    fprintf(stderr, "ctrl-change chan %d, ctrl %d, val %d\n", chan+1,
-		    data[1], data[2]);
-#endif
-	  }
-#endif
-	  break;
-	}
-	}
-	break;
-      }
-      default:
-	break;
-      }
+      plugin->process_midi(data, 4);
     } else if (events->events[i]->type == kVstSysExType) {
-      // NOTE: Sysex messages are currently used for the MTS tuning messages.
-      // Unfortunately, this event type still doesn't seem to be supported by
-      // many VST hosts, so we also provide an alternative way for feeding
-      // this kind of data to the plugin by means of the extra "tuning"
-      // control.
       VstMidiSysexEvent* ev = (VstMidiSysexEvent*)events->events[i];
       int sz = ev->dumpBytes;
       uint8_t *data = (uint8_t*)ev->sysexDump;
       bool is_instr = plugin->maxvoices > 0;
-      if (!is_instr || !data || sz < 2) continue;
-      plugin->mts_sysex(data, sz);
+      if (!is_instr) continue;
+      plugin->process_sysex(data, sz);
       break;
     } else {
       fprintf(stderr, "%s: unknown event type %d\n",

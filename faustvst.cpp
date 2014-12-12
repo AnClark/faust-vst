@@ -2233,7 +2233,6 @@ VstInt32 VSTWrapper::processEvents(VstEvents* events)
       bool is_instr = plugin->maxvoices > 0;
       if (!is_instr) continue;
       plugin->process_sysex(data, sz);
-      break;
     } else {
       fprintf(stderr, "%s: unknown event type %d\n",
 	      FaustPlugin::pluginName(), events->events[i]->type);

@@ -188,7 +188,7 @@ struct ui_elem_t {
   float init, min, max, step;
 };
 
-class FaustUI : public UI
+class PFaustUI : public UI
 {
 public:
   bool is_instr;
@@ -196,8 +196,8 @@ public:
   ui_elem_t *elems;
   map< int, list<strpair> > metadata;
 
-  FaustUI(int maxvoices = 0);
-  virtual ~FaustUI();
+  PFaustUI(int maxvoices = 0);
+  virtual ~PFaustUI();
 
 protected:
   void add_elem(ui_elem_type_t type, const char *label = NULL);
@@ -227,19 +227,19 @@ public:
   virtual void declare(float* zone, const char* key, const char* value);
 };
 
-FaustUI::FaustUI(int maxvoices)
+PFaustUI::PFaustUI(int maxvoices)
 {
   is_instr = maxvoices>0;
   nelems = nports = 0;
   elems = NULL;
 }
 
-FaustUI::~FaustUI()
+PFaustUI::~PFaustUI()
 {
   if (elems) free(elems);
 }
 
-void FaustUI::declare(float* zone, const char* key, const char* value)
+void PFaustUI::declare(float* zone, const char* key, const char* value)
 {
   map< int, list<strpair> >::iterator it = metadata.find(nelems);
   if (it != metadata.end())
@@ -248,7 +248,7 @@ void FaustUI::declare(float* zone, const char* key, const char* value)
     metadata[nelems] = list<strpair>(1, strpair(key, value));
 }
 
-inline void FaustUI::add_elem(ui_elem_type_t type, const char *label)
+inline void PFaustUI::add_elem(ui_elem_type_t type, const char *label)
 {
   ui_elem_t *elems1 = (ui_elem_t*)realloc(elems, (nelems+1)*sizeof(ui_elem_t));
   if (elems1)
@@ -271,7 +271,7 @@ static bool is_voice_ctrl(const char *label);
 
 #define portno(label) ((is_instr && is_voice_ctrl(label))?-1:nports++)
 
-inline void FaustUI::add_elem(ui_elem_type_t type, const char *label, float *zone)
+inline void PFaustUI::add_elem(ui_elem_type_t type, const char *label, float *zone)
 {
   ui_elem_t *elems1 = (ui_elem_t*)realloc(elems, (nelems+1)*sizeof(ui_elem_t));
   if (elems1)
@@ -290,8 +290,7 @@ inline void FaustUI::add_elem(ui_elem_type_t type, const char *label, float *zon
   nelems++;
 }
 
-inline void FaustUI::add_elem(ui_elem_type_t type, const char *label, float *zone,
-			     float init, float min, float max, float step)
+inline void PFaustUI::add_elem(ui_elem_type_t type, const char *label, float *zone, float init, float min, float max, float step)
 {
   ui_elem_t *elems1 = (ui_elem_t*)realloc(elems, (nelems+1)*sizeof(ui_elem_t));
   if (elems1)
@@ -310,8 +309,7 @@ inline void FaustUI::add_elem(ui_elem_type_t type, const char *label, float *zon
   nelems++;
 }
 
-inline void FaustUI::add_elem(ui_elem_type_t type, const char *label, float *zone,
-			     float min, float max)
+inline void PFaustUI::add_elem(ui_elem_type_t type, const char *label, float *zone, float min, float max)
 {
   ui_elem_t *elems1 = (ui_elem_t*)realloc(elems, (nelems+1)*sizeof(ui_elem_t));
   if (elems1)
@@ -330,32 +328,32 @@ inline void FaustUI::add_elem(ui_elem_type_t type, const char *label, float *zon
   nelems++;
 }
 
-void FaustUI::addButton(const char* label, float* zone)
+void PFaustUI::addButton(const char* label, float* zone)
 { add_elem(UI_BUTTON, label, zone); }
-void FaustUI::addCheckButton(const char* label, float* zone)
+void PFaustUI::addCheckButton(const char* label, float* zone)
 { add_elem(UI_CHECK_BUTTON, label, zone); }
-void FaustUI::addVerticalSlider(const char* label, float* zone, float init, float min, float max, float step)
+void PFaustUI::addVerticalSlider(const char* label, float* zone, float init, float min, float max, float step)
 { add_elem(UI_V_SLIDER, label, zone, init, min, max, step); }
-void FaustUI::addHorizontalSlider(const char* label, float* zone, float init, float min, float max, float step)
+void PFaustUI::addHorizontalSlider(const char* label, float* zone, float init, float min, float max, float step)
 { add_elem(UI_H_SLIDER, label, zone, init, min, max, step); }
-void FaustUI::addNumEntry(const char* label, float* zone, float init, float min, float max, float step)
+void PFaustUI::addNumEntry(const char* label, float* zone, float init, float min, float max, float step)
 { add_elem(UI_NUM_ENTRY, label, zone, init, min, max, step); }
 
-void FaustUI::addHorizontalBargraph(const char* label, float* zone, float min, float max)
+void PFaustUI::addHorizontalBargraph(const char* label, float* zone, float min, float max)
 { add_elem(UI_H_BARGRAPH, label, zone, min, max); }
-void FaustUI::addVerticalBargraph(const char* label, float* zone, float min, float max)
+void PFaustUI::addVerticalBargraph(const char* label, float* zone, float min, float max)
 { add_elem(UI_V_BARGRAPH, label, zone, min, max); }
 
-void FaustUI::openTabBox(const char* label)
+void PFaustUI::openTabBox(const char* label)
 { add_elem(UI_T_GROUP, label); }
-void FaustUI::openHorizontalBox(const char* label)
+void PFaustUI::openHorizontalBox(const char* label)
 { add_elem(UI_H_GROUP, label); }
-void FaustUI::openVerticalBox(const char* label)
+void PFaustUI::openVerticalBox(const char* label)
 { add_elem(UI_V_GROUP, label); }
-void FaustUI::closeBox()
+void PFaustUI::closeBox()
 { add_elem(UI_END_GROUP); }
 
-void FaustUI::run() {}
+void PFaustUI::run() {}
 
 /******************************************************************************
 *******************************************************************************
@@ -642,14 +640,14 @@ static float ctrlval(const ui_elem_t &el, uint8_t v)
    internal data structures, so that implementation details can be changed
    more easily. */
 
-struct FaustPlugin {
+struct PFaustPlugin {
   const int maxvoices;	// maximum number of voices (zero if not an instrument)
   const int ndsps;	// number of dsp instances (1 if maxvoices==0)
   int nvoices;		// current number of voices (<= maxvoices)
   bool active;		// activation status
   int rate;		// sampling rate
   mydsp **dsp;		// the dsps
-  FaustUI **ui;		// their Faust interface descriptions
+  PFaustUI **ui;	// their Faust interface descriptions
   int n_in, n_out;	// number of input and output control ports
   int poly, tuning;	// polyphony and tuning ports
   int *ctrls;		// Faust ui elements (indices into ui->elems)
@@ -776,7 +774,7 @@ struct FaustPlugin {
   {
     const int num_voices = numVoices();
     mydsp dsp;
-    FaustUI ui(num_voices);
+    PFaustUI ui(num_voices);
     dsp.buildUserInterface(&ui);
     // reserve one extra port for the polyphony control (instruments only)
     int num_extra = (num_voices>0);
@@ -790,7 +788,7 @@ struct FaustPlugin {
 
   // Instance methods.
 
-  FaustPlugin(const int num_voices, const int sr)
+  PFaustPlugin(const int num_voices, const int sr)
     : maxvoices(num_voices), ndsps(num_voices<=0?1:num_voices),
       vd(num_voices>0?new VoiceData(num_voices):0)
   {
@@ -802,7 +800,7 @@ struct FaustPlugin {
 #endif
     // Allocate data structures and set some reasonable defaults.
     dsp = (mydsp**)calloc(ndsps, sizeof(mydsp*));
-    ui = (FaustUI**)calloc(ndsps, sizeof(FaustUI*));
+    ui = (PFaustUI**)calloc(ndsps, sizeof(PFaustUI*));
     assert(dsp && ui);
     if (vd) {
       vd->note_info = (NoteInfo*)calloc(ndsps, sizeof(NoteInfo));
@@ -845,7 +843,7 @@ struct FaustPlugin {
     // Initialize the Faust DSPs.
     for (int i = 0; i < ndsps; i++) {
       dsp[i] = new mydsp();
-      ui[i] = new FaustUI(num_voices);
+      ui[i] = new PFaustUI(num_voices);
       dsp[i]->init(rate);
       dsp[i]->buildUserInterface(ui[i]);
     }
@@ -983,7 +981,7 @@ struct FaustPlugin {
     }
   }
 
-  ~FaustPlugin()
+  ~PFaustPlugin()
   {
     const int n = dsp[0]->getNumInputs();
     const int m = dsp[0]->getNumOutputs();
@@ -1386,7 +1384,7 @@ struct FaustPlugin {
       n_samples = blocksz;
     }
     if (outbuf) {
-      // Polyphonic instrument: Mix the voices down to one signal.
+      // Pphonic instrument: Mix the voices down to one signal.
       for (int i = 0; i < m; i++)
 	for (unsigned j = 0; j < n_samples; j++)
 	  outputs[i][j] = 0.0f;
@@ -1698,7 +1696,7 @@ struct FaustPlugin {
   }
 
   // Change to a given preloaded tuning. The given tuning number may be in the
-  // range 1..FaustPlugin::n_tunings, zero denotes the default tuning (equal
+  // range 1..PFaustPlugin::n_tunings, zero denotes the default tuning (equal
   // temperament). This is only supported if FAUST_MTS is defined at compile
   // time.
 
@@ -1725,10 +1723,10 @@ struct FaustPlugin {
 
 };
 
-Meta *FaustPlugin::meta = 0;
-int FaustPlugin::n_tunings = 0;
+Meta *PFaustPlugin::meta = 0;
+int PFaustPlugin::n_tunings = 0;
 #if FAUST_MTS
-MTSTunings *FaustPlugin::mts = 0;
+MTSTunings *PFaustPlugin::mts = 0;
 #endif
 
 /* VST-specific part starts here. ********************************************/
@@ -1780,7 +1778,7 @@ public:
   virtual VstInt32 getNumMidiOutputChannels()  { return 0; }
 
 private:
-  FaustPlugin *plugin;
+  PFaustPlugin *plugin;
   char progname[kVstMaxProgNameLen+1];
   float *defprog;
 };
@@ -1862,13 +1860,13 @@ AudioEffect *createEffectInstance(audioMasterCallback audioMaster)
 }
 
 VSTWrapper::VSTWrapper(audioMasterCallback audioMaster)
-  : AudioEffectX(audioMaster, 1, FaustPlugin::numControls())
+  : AudioEffectX(audioMaster, 1, PFaustPlugin::numControls())
 {
-  const char *dsp_name = FaustPlugin::pluginName();
-  const int num_voices = FaustPlugin::numVoices();
+  const char *dsp_name = PFaustPlugin::pluginName();
+  const int num_voices = PFaustPlugin::numVoices();
   // Get the initial sample rate from the VST host.
   const int rate = getSampleRate();
-  plugin = new FaustPlugin(num_voices, rate);
+  plugin = new PFaustPlugin(num_voices, rate);
   // VST-specific initialization:
   if (audioMaster) {
     setNumInputs(plugin->dsp[0]->getNumInputs());
@@ -2124,7 +2122,7 @@ bool VSTWrapper::string2parameter(VstInt32 index, char *text)
 bool VSTWrapper::getInputProperties(VstInt32 index,
 				    VstPinProperties* properties)
 {
-  const char *dsp_name = FaustPlugin::pluginName();
+  const char *dsp_name = PFaustPlugin::pluginName();
   const int n = plugin->dsp[0]->getNumInputs();
   if (index < 0 || index >= n)
     return false;
@@ -2141,7 +2139,7 @@ bool VSTWrapper::getInputProperties(VstInt32 index,
 bool VSTWrapper::getOutputProperties(VstInt32 index,
 				     VstPinProperties* properties)
 {
-  const char *dsp_name = FaustPlugin::pluginName();
+  const char *dsp_name = PFaustPlugin::pluginName();
   const int n = plugin->dsp[0]->getNumOutputs();
   if (index < 0 || index >= n)
     return false;
@@ -2159,28 +2157,28 @@ bool VSTWrapper::getOutputProperties(VstInt32 index,
 
 bool VSTWrapper::getEffectName(char *name)
 {
-  const char *dsp_name = FaustPlugin::pluginName();
+  const char *dsp_name = PFaustPlugin::pluginName();
   vst_strncpy(name, dsp_name, kVstMaxEffectNameLen);
   return true;
 }
 
 bool VSTWrapper::getVendorString(char *text)
 {
-  const char *vendorString = FaustPlugin::pluginAuthor();
+  const char *vendorString = PFaustPlugin::pluginAuthor();
   vst_strncpy(text, vendorString, kVstMaxVendorStrLen);
   return true;
 }
 
 bool VSTWrapper::getProductString(char *text)
 {
-  const char *productString = FaustPlugin::pluginDescription();
+  const char *productString = PFaustPlugin::pluginDescription();
   vst_strncpy(text, productString, kVstMaxProductStrLen);
   return true;
 }
 
 VstInt32 VSTWrapper::getVendorVersion()
 { 
-  const char *versionString = FaustPlugin::pluginVersion();
+  const char *versionString = PFaustPlugin::pluginVersion();
   return (VstInt32)(atof(versionString)*1000.0);
 }
 
@@ -2235,7 +2233,7 @@ VstInt32 VSTWrapper::processEvents(VstEvents* events)
       plugin->process_sysex(data, sz);
     } else {
       fprintf(stderr, "%s: unknown event type %d\n",
-	      FaustPlugin::pluginName(), events->events[i]->type);
+	      PFaustPlugin::pluginName(), events->events[i]->type);
     }
   }
   return 1;

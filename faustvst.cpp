@@ -509,6 +509,7 @@ struct VoiceData {
 #include <sys/stat.h>
 #include <dirent.h>
 
+#include <string>
 #include <vector>
 
 struct MTSTuning {

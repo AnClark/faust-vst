@@ -6,7 +6,7 @@
 FAUST_META=1
 FAUST_MIDICC=1
 FAUST_MTS=1
-NVOICES=0
+NVOICES=-1
 
 # These should be detected properly at build time, but you can also set them
 # to alternative locations using the SDK and SDKSRC environment variables.
@@ -89,7 +89,10 @@ soname="$clsname$dllext"
 tmpdir=`mktemp -d /tmp/faust2faustvst.XXXXXX`
 
 CXX=g++
-CPPFLAGS="-DFAUST_META=$FAUST_META -DFAUST_MIDICC=$FAUST_MIDICC -DFAUST_MTS=$FAUST_MTS -DNVOICES=$NVOICES -I$SDK -I$SDKSRC -D__cdecl="
+CPPFLAGS="-DFAUST_META=$FAUST_META -DFAUST_MIDICC=$FAUST_MIDICC -DFAUST_MTS=$FAUST_MTS -I$SDK -I$SDKSRC -D__cdecl="
+if [ $NVOICES -ge 0 ]; then
+CPPFLAGS="$CPPFLAGS -DNVOICES=$NVOICES"
+fi
 
 # Extra SDK modules needed to build a working plugin.
 main=vstplugmain.cpp

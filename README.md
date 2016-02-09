@@ -10,7 +10,7 @@ compile a plugin, a collection of sample plugins written in Faust, and a
 generic GNU Makefile for compiling and installing the plugins.
 
 Please note that the faustvst.cpp architecture provided here is different from
-Yan Michalevsky's vst.cpp architecture included in the latest Faust versions.
+Yan Michalevsky's vst.cpp architecture included in the Faust distribution.
 faust-vst is a separate development based on the [faust-lv2][3] project, and
 as such it offers the same set of features as faust-lv2. Except for the
 portamento feature in the vst.cpp architecture, which isn't supported in
@@ -31,9 +31,9 @@ yourself. Also, support for Faust's external OSC and HTTPD control facilities
 is still on the TODO list at this time.
 
 The architecture has been given some fairly thorough testing using various
-open-source and commercial DAWs on both Linux and Mac OS X, among them
-Ardour3, Bitwig, Qtractor, Reaper and Tracktion. It appears to work fine with
-each of these, but if you notice any bugs then please head over to
+open-source and commercial DAWs on both Linux and Mac OS X, among them Ardour,
+Bitwig, Qtractor, Reaper and Tracktion. It appears to work fine with each of
+these, but if you notice any bugs then please head over to
 <https://bitbucket.org/agraef/faust-vst> and report them there.
 
 Copying
@@ -66,12 +66,9 @@ can change this by editing the script file. Both gcc and clang should work out
 of the box, other C++ compilers may need some twiddling with the compiler
 options in the Makefile and the faust2faustvst script.
 
-You'll also need the Steinberg SDK version 2.4 or later. Unfortunately, the
-VST SDK isn't redistributable, so you must register as a developer on the
-Steinberg website and download it yourself. At the time of this writing, the
-SDK is available at <http://www.steinberg.net/en/company/developers.html>.
-After completing the registration and accepting the license terms, you can
-download a zip archive with the latest SDK version there. There's no standard
+You'll also need the Steinberg SDK version 2.4 or later. A zip archive with
+the latest SDK version can be found here:
+<http://www.steinberg.net/en/company/developers.html>. There's no standard
 location for these files, so you just copy them to any directory on your
 system that seems appropriate. For instance:
 
@@ -126,13 +123,17 @@ check for compatibility of the plugins with your VST host. You may want to
 skip this step if you're only interested in compiling your own plugins.
 
 For compiling your own Faust sources, only the faustvst.cpp architecture and
-the faust2faustvst helper script are needed. There's a `make install-faust`
-target which installs these items in the appropriate directories; the
+the faust2faustvst helper script are needed. As of 2016-02-09, these are now
+also included in the latest revisions of the Faust compiler, so if you
+installed Faust from the latest git sources after that date, chances are that
+you already have it.
+
+If you're still running an older Faust version shipping without faust-vst then
+the `make install-faust` target of this package provides you with a quick way
+to add the architecture and the helper script to your existing Faust
+installation. It copies these items to the appropriate directories; the
 faust2faustvst script goes into /usr/local/bin and the faustvst.cpp
-architecture into /usr/local/lib/faust by default. At the time of this
-writing, faust-vst isn't included in the Faust distribution yet, so this make
-target provides you with an easy way to add the architecture and the helper
-script to your existing Faust installation.
+architecture into /usr/local/lib/faust by default.
 
 Both `make install` and `make install-faust` let you adjust the installation
 prefix with the `prefix` make variable, and package maintainers can specify a

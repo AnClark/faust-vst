@@ -410,7 +410,7 @@ class dsp {
 //  VST interface
 //----------------------------------------------------------------------------
 
-#line 396 "faustvst.cpp"
+#line 414 "faustvst.cpp"
 
 #include <assert.h>
 #include <stdio.h>

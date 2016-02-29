@@ -59,7 +59,7 @@ details.
 Prerequisites
 -------------
 
-To compile plugins with the vstsdk.cpp architecture, you need to have Faust,
+To compile plugins with the faustvst.cpp architecture, you need to have Faust,
 GNU make and a suitable C++ compiler installed. The Makefile uses whatever the
 CXX variable indicates. The faust2faustvst script uses gcc by default, but you
 can change this by editing the script file. Both gcc and clang should work out

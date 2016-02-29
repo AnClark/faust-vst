@@ -188,6 +188,10 @@ compiler on the resulting C++ code to create a working plugin. All the
 necessary compiler and linker options are provided automatically, and on OS X
 the script also takes care of creating a proper VST bundle.
 
+The faust2faustvst script understands a number of options which correspond to
+various compilation options in the Makefile; run `faust2faustvst -h` to get a
+brief summary of these.
+
 In contrast to faust-lv2, the same architecture is used for both effect (VST)
 and instrument (VSTi) plugins. For the latter, you may define the `NVOICES`
 macro at build time in the same manner as with the lv2synth.cpp architecture.

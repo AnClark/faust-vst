@@ -1,7 +1,7 @@
 faust-vst
 =========
 
-Albert Gräf <aggraef@gmail.com>, 2014-12-04
+Albert Gräf <aggraef@gmail.com>, 2016-03-03
 
 This project provides a [VST][1] plugin architecture for the [Faust][2]
 programming language. The package contains the Faust architecture,
@@ -22,19 +22,18 @@ capabilities. Faust sources that have been developed for faust-lv2 should just
 take a recompile to make them work in exactly the same way in any VST host.
 
 At present, faust-vst has been tested and is known to work on recent Linux and
-Mac OS X versions. Support for Windows should be a piece of cake, though, and
-will hopefully be added in the near future. To improve cross-platform
-compatibility, faustvst.cpp doesn't include any GUI code; it completely relies
-on the VST host for rendering control GUIs. This keeps things simple, but it
-also means that if you want prettier GUIs then you'll have to code them
-yourself. Also, support for Faust's external OSC and HTTPD control facilities
-is still on the TODO list at this time.
+Mac OS X versions. Support for Windows should be a piece of cake, though. To
+improve cross-platform compatibility, faustvst.cpp doesn't include any GUI
+code; it completely relies on the VST host for rendering control GUIs. This
+keeps things simple, but it also means that if you want prettier GUIs then
+you'll have to code them yourself. Also, support for Faust's external OSC and
+HTTPD control facilities is still on the TODO list at this time.
 
 The architecture has been given some fairly thorough testing using various
 open-source and commercial DAWs on both Linux and Mac OS X, among them Ardour,
 Bitwig, Qtractor, Reaper and Tracktion. It appears to work fine with each of
 these, but if you notice any bugs then please head over to
-<https://bitbucket.org/agraef/faust-vst> and report them there.
+https://bitbucket.org/agraef/faust-vst and report them there.
 
 Copying
 -------
@@ -68,7 +67,7 @@ options in the Makefile and the faust2faustvst script.
 
 You'll also need the Steinberg SDK version 2.4 or later. A zip archive with
 the latest SDK version can be found here:
-<http://www.steinberg.net/en/company/developers.html>. There's no standard
+http://www.steinberg.net/en/company/developers.html. There's no standard
 location for these files, so you just copy them to any directory on your
 system that seems appropriate. For instance:
 
@@ -192,15 +191,15 @@ The faust2faustvst script understands a number of options which correspond to
 various compilation options in the Makefile; run `faust2faustvst -h` to get a
 brief summary of these.
 
-In contrast to faust-lv2, the same architecture is used for both effect (VST)
-and instrument (VSTi) plugins. For the latter, you may define the `NVOICES`
-macro at build time in the same manner as with the lv2synth.cpp architecture.
-Moreover, it is also possible to specify the maximum number of voices with the
-`nvoices` meta key in the Faust source.
+As with faust-lv2, the same architecture is used for both effect (VST) and
+instrument (VSTi) plugins. For the latter, you may define the `NVOICES` macro
+at build time in the same manner as with the lv2.cpp architecture. Moreover,
+it is also possible to specify the maximum number of voices with the `nvoices`
+meta key in the Faust source.
 
 Please check examples/organ.dsp in the distributed sources for a simple
 example of an instrument plugin. The rules for creating the voice controls
-`freq`, `gain` and `gate` are the same as for the lv2synth.cpp architecture.
+`freq`, `gain` and `gate` are the same as for the lv2.cpp architecture.
 To compile an instrument plugin with the faust2faustvst script, you can
 specify the maximum polyphony with the `-nvoices` option, e.g.:
 
@@ -225,38 +224,17 @@ present, the supported formats are 1- or 2-byte octave-based tunings, please
 check the faust-lv2 documentation for details on this. We also offer a program
 which generates MTS messages in these formats from human-readable scale
 definitions in the Scala format and stores them as Sysex (.syx) or MIDI (.mid)
-files. You can find this program at <https://bitbucket.org/agraef/sclsyx>.
+files. You can find this program at https://bitbucket.org/agraef/sclsyx.
 
-To use this, your VST host needs to be able to receive and/or store sysex
-messages and pass them on to VSTi plugins. Unfortunately, not all VST hosts
-implement this feature at this time. As a remedy, the faustvst.cpp
-architecture also provides an additional `tuning` control which allows you to
-choose a tuning from a collection of MTS sysex files determined at load
-time. (This feature can also be disabled with a corresponding compilation
-option, please check the Makefile for details.) You then just need to drop
-some MTS sysex (.syx) files into the ~/.faust/tuning folder. If this folder is
-present and contains some MTS sysex files in the right format, then the
-`tuning` control becomes available on all faust-vst instrument plugins which
-have been compiled with this option. The control usually takes the form of a
-slider which shows the current value (both the basename of the tuning file and
-the corresponding numeric value). The tunings are numbered in alphabetic order
-starting at 1; a slider value of 0 denotes the default tuning (equal
-temperament). Changing the slider value in the control GUI provided by your
-VST host adjusts the tuning accordingly.
-
-This controller-based method for changing the tuning will of course become
-rather unwieldy if you need to work with a large number of different tunings.
-On the other hand, it also offers the advantage that the tuning becomes an
-automatable parameter which can be recorded and played back by hosts which
-provide control automation (your favorite DAW probably does). Note that the
-amount of data in the octave-based tunings is rather small and the data is
-stored in main memory at load time, so that changing tunings in real-time is
-not an expensive operation.
-
-**NOTE:** Instead of ~/.faust you can also name a different "home" folder by
-setting the FAUST_HOME environment variable accordingly. In addition, on Mac
-OS X the ~/Library/Faust/Tuning folder will also be searched for tunings if
-~/.faust/tuning doesn't exist or contains no valid sysex files.
+The faustvst.cpp architecture also offers the same kind of tuning control
+which allows you to choose a tuning from a collection of MTS sysex files
+determined at load time. If you drop some MTS sysex (.syx) files into a
+special folder (~/.faust/tuning by default), then the `tuning` control becomes
+available on all faust-vst instrument plugins which have been compiled with
+this option. This (automatable) control usually takes the form of a slider
+displaying both the tuning number and the basename of the corresponding sysex
+file. Changing the slider value adjusts the tuning in real-time. Please check
+the faust-lv2 documentation for details.
 
 [1]: http://www.steinberg.net/en/company/developers.html
 [2]: http://faust.grame.fr/

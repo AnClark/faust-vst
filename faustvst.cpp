@@ -1343,7 +1343,7 @@ struct PFaustPlugin {
       n_samples = blocksz;
     }
     if (outbuf) {
-      // Pphonic instrument: Mix the voices down to one signal.
+      // Polyphonic instrument: Mix the voices down to one signal.
       for (int i = 0; i < m; i++)
 	for (unsigned j = 0; j < n_samples; j++)
 	  outputs[i][j] = 0.0f;

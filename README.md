@@ -229,12 +229,12 @@ files. You can find this program at https://bitbucket.org/agraef/sclsyx.
 The faustvst.cpp architecture also offers the same kind of tuning control
 which allows you to choose a tuning from a collection of MTS sysex files
 determined at load time. If you drop some MTS sysex (.syx) files into a
-special folder (~/.faust/tuning by default), then the `tuning` control becomes
-available on all faust-vst instrument plugins which have been compiled with
-this option. This (automatable) control usually takes the form of a slider
-displaying both the tuning number and the basename of the corresponding sysex
-file. Changing the slider value adjusts the tuning in real-time. Please check
-the faust-lv2 documentation for details.
+special folder (~/.faust/tuning by default, or ~/Library/Faust/Tuning on the
+Mac), then the `tuning` control becomes available on all faust-vst instrument
+plugins which have been compiled with this option. This (automatable) control
+usually takes the form of a slider displaying both the tuning number and the
+basename of the corresponding sysex file. Changing the slider value adjusts
+the tuning in real-time. Please check the faust-lv2 documentation for details.
 
 [1]: http://www.steinberg.net/en/company/developers.html
 [2]: http://faust.grame.fr/

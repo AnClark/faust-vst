@@ -208,12 +208,12 @@ specify the maximum polyphony with the `-nvoices` option, e.g.:
 Or you may add a definition like the following to the beginning of your Faust
 source:
 
-    nvoices "16";
+    declare nvoices "16";
 
 If both are specified then the command line option takes precedence. Using
-`-nvoices 0` (or `nvoices "0";` in the Faust source) creates an ordinary
-effect plugin without MIDI note processing. This is also the default if none
-of these options are specified.
+`-nvoices 0` (or `declare nvoices "0";` in the Faust source) creates an
+ordinary effect plugin without MIDI note processing. This is also the default
+if none of these options are specified.
 
 MTS Support
 -----------

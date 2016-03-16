@@ -13,6 +13,22 @@ libdir = $(prefix)/lib
 vstlibdir = $(libdir)/vst
 faustlibdir = $(libdir)/faust
 
+# Try to guess the Faust installation prefix.
+faustprefix = $(patsubst %/bin/faust,%,$(shell which faust 2>/dev/null))
+ifeq ($(strip $(faustprefix)),)
+# Fall back to /usr/local.
+faustprefix = /usr/local
+endif
+incdir = $(faustprefix)/include
+faustincdir = $(incdir)/faust
+
+# Set this variable to build the plugin GUIs. This option requires Qt5.
+gui = 0
+
+# qmake setup (for GUI compilation). You may have to set this explicitly if
+# the qmake executable isn't found.
+qmake=$(shell which qmake-qt5 || which /opt/local/libexec/qt5/bin/qmake || echo qmake)
+
 # Check for some common locations of the SDK files. This falls back to
 # /usr/local/src/vstsdk if none of these are found. In that case, or if make
 # picks the wrong location, you can also set the SDK variable explicitly.
@@ -33,6 +49,8 @@ SDKSRC = $(firstword $(patsubst %/,%,$(dir $(wildcard $(addsuffix vstplugmain.cp
 #DEFINES += -DFAUST_MIDICC=0
 # Disable the tuning control (synth only).
 #DEFINES += -DFAUST_MTS=0
+# Disable polyphony/tuning controls on GUI.
+#DEFINES += -DVOICE_CTRLS=0
 # Number of voices (synth: polyphony).
 #DEFINES += -DNVOICES=16
 # Debug recognized MIDI controller metadata.
@@ -47,6 +65,39 @@ SDKSRC = $(firstword $(patsubst %/,%,$(dir $(wildcard $(addsuffix vstplugmain.cp
 #DEFINES += -DDEBUG_RPN=1
 # Debug MTS messages (synth: octave/scale tuning).
 #DEFINES += -DDEBUG_MTS=1
+
+# This is set automatically according to the gui option.
+ifneq ($(gui),0)
+DEFINES += -DFAUST_UI=1
+endif
+
+# GUI configuration. Adjust as needed/wanted.
+# Uncomment this to get OSC and/or HTTP support in the plugin GUIs.
+#UI_DEFINES += -DOSCCTRL -DHTTPCTRL
+# Uncomment this to also get the QR code popup for HTTP.
+#UI_DEFINES += -DQRCODECTRL
+# Uncomment this to set a special style sheet. This must be the basename of
+# one of the style sheets available in $(faustincdir)/gui/Styles.
+#STYLE = Grey
+
+# Add the libraries needed for the UI options above.
+ifneq "$(findstring -DOSCCTRL,$(UI_DEFINES))" ""
+UI_LIBS += -lOSCFaust
+endif
+ifneq "$(findstring -DHTTPCTRL,$(UI_DEFINES))" ""
+UI_LIBS += -lHTTPDFaust -lmicrohttpd
+endif
+ifneq "$(findstring -DQRCODECTRL,$(UI_DEFINES))" ""
+UI_LIBS += -lqrencode
+endif
+
+ifneq "$(STYLE)" ""
+UI_DEFINES += -DSTYLE=$(STYLE)
+RESOURCES = $(faustincdir)/gui/Styles/$(STYLE).qrc
+endif
+
+# Uncomment this to keep the Qt GUI projects after compilation.
+#KEEP = true
 
 # Additional Faust flags.
 # Uncomment the following to have Faust substitute the proper class name into
@@ -135,6 +186,11 @@ $(afxx).o: $(SDKSRC)/$(afxx).cpp
 %.o: %.cpp $(arch).cpp
 	$(CXX) $(CXXFLAGS) $(EXTRA_CFLAGS) -c -o $@ $<
 
+ifndef KEEP
+KEEP = false
+endif
+
+ifeq ($(gui),0)
 ifeq "$(DLL)" ".vst"
 # This rule builds an OS X bundle. Since the target %.vst is a directory here,
 # we have to go to some lengths to prevent make from rebuilding the target
@@ -152,11 +208,17 @@ else
 %$(DLL): %.o $(extra_objects)
 	$(CXX) $(shared) $^ -o $@
 endif
+else
+# We need to invoke qmake here. You must have Qt5 installed to make this work.
+# XXXTODO: OSX support
+%$(DLL): %.cpp $(extra_objects)
+	+(tmpdir=$(dir $@)$(notdir $(<:%.cpp=%.src)); rm -rf $$tmpdir; mkdir -p $$tmpdir; cp $< $$tmpdir; cd $$tmpdir; $(qmake) -project -t lib -o "$(notdir $(<:%.cpp=%.pro))" "CONFIG += gui plugin no_plugin_name_prefix warn_off" "QT += widgets printsupport network x11extras" "INCLUDEPATH+=$(CURDIR)" "INCLUDEPATH+=.." "INCLUDEPATH+=$(faustincdir)" "QMAKE_CXXFLAGS=$(CXXFLAGS) $(EXTRA_CFLAGS) $(UI_DEFINES)" "LIBS+=$(UI_LIBS)" "LIBS+=$(addprefix $(CURDIR)/, $(extra_objects))" "HEADERS+=$(CURDIR)/faustvstqt.h" "HEADERS+=$(faustincdir)/gui/faustqt.h" "RESOURCES+=$(RESOURCES)"; $(qmake) *.pro && make && cp $(notdir $@) .. && cd $(CURDIR) && ($(KEEP) || rm -rf $$tmpdir))
+endif
 
 # Clean.
 
 clean:
-	rm -Rf faust2faustvst $(cppsource) $(stamps) $(objects) $(extra_objects) $(plugins)
+	rm -Rf faust2faustvst $(dspsource:.dsp=.src) $(cppsource) $(stamps) $(objects) $(extra_objects) $(plugins)
 
 # Install.
 
@@ -167,8 +229,8 @@ install: $(plugins)
 uninstall:
 	rm -Rf $(addprefix $(DESTDIR)$(vstlibdir)/, $(notdir $(plugins)))
 
-# Use this to install the Faust architectures and scripts included in this
-# package over an existing Faust installation.
+# Use this to add the Faust architectures and scripts included in this package
+# to an existing Faust installation.
 
 install-faust: faust2faustvst
 	test -d $(DESTDIR)$(bindir) || mkdir -p $(DESTDIR)$(bindir)

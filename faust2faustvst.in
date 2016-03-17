@@ -2,14 +2,6 @@
 
 #set -x
 
-# defaults (these can be changed with the options listed below)
-FAUST_META=1
-FAUST_MIDICC=1
-FAUST_MTS=1
-NVOICES=-1
-
-KEEP="no"
-
 # These should be detected properly at build time, but you can also set them
 # to alternative locations using the SDK and SDKSRC environment variables.
 # Set this to the location where you keep your VST SDK files.
@@ -18,6 +10,37 @@ KEEP="no"
 # Usually these are either directly under $SDK or in the
 # public.sdk/source/vst2.x subdirectory.
 [ -z $SDKSRC ] && SDKSRC=@SDKSRC@
+
+# qmake setup (for GUI compilation). This requires Qt5. We try to
+# locate the qmake executable in some common locations here. If this doesn't
+# work out then you can also set the QMAKE environment variable explicitly to
+# point to the qmake executable.
+[ -z $QMAKE ] && QMAKE=$(which qmake-qt5 || which /opt/local/libexec/qt5/bin/qmake || which qmake-qt4 || which /opt/local/libexec/qt4/bin/qmake || echo qmake)
+
+# Where the Faust includes live. We assume that this is under the prefix of
+# whatever Faust binary 'which' locates. You can also specify this explicitly
+# by setting the FAUSTINC environment variable accordingly.
+[ -z $FAUSTINC ] && FAUSTINC=$(which faust 2>/dev/null | sed -e 's?/bin/faust?/include/faust?')
+
+# Where our own Faust library files are. This may be under a different prefix
+# or not installed anywhere. We try 'ls' on faustvstqt.h in some common
+# locations here, and fall back to the current directory if the file isn't
+# found, so that you can run the script from the faust-vst source
+# directory. You can also specify this explicitly by setting the FAUSTLIB
+# environment variable accordingly.
+[ -z $FAUSTLIB ] && FAUSTLIB=$(dirname $((ls -f /usr/lib/faust/faustvstqt.h /usr/local/lib/faust/faustvstqt.h /opt/local/lib/faust/faustvstqt.h $PWD/faustvstqt.h 2>/dev/null)|tail -1))
+[ -z $FAUSTLIB ] && FAUSTLIB=$PWD
+
+# defaults (these can be changed with the options listed below)
+FAUST_META=1
+FAUST_MIDICC=1
+FAUST_MTS=1
+FAUST_UI=0
+VOICE_CTRLS=1
+NVOICES=-1
+
+KEEP="no"
+STYLE=""
 
 PROCARCH="-fPIC"
 dllext=".so"
@@ -30,23 +53,32 @@ if [[ $(uname) == Darwin ]]; then
     dllext=".vst"
 fi
 
-# We recognize the following special options here:
-# -nometa: ignore metadata (author information etc.) from the Faust source
-# -nomidicc: plugin doesn't process MIDI control data
-# -notuning: disable the tuning control (VSTi only)
-# -nvoices N: number of synth voices (VSTi only; arg must be an integer)
-
+# dispatch command arguments
 for ((i=1;i<$#+1;i++)); do
     p=${!i}
     if [ $p = "-help" ] || [ $p = "-h" ]; then
 	cat <<EOF
 faust2faustvst [options ...] <file.dsp>
+
 Options:
+-gui: build the plugin GUI (requires Qt5)
+-httpd: activate HTTP control (add -qrcode to activate QR code generation)
 -keep: retain the build directory
 -nometa: ignore metadata (author information etc.) from the Faust source
 -nomidicc: plugin doesn't process MIDI control data
--notuning: disable the tuning control (VSTi only)
--nvoices N: number of synth voices (VSTi only; arg must be an integer)
+-notuning: disable the tuning control (instruments only)
+-novoicectrls: no extra polyphony/tuning controls on GUI (instruments only)
+-nvoices N: number of synth voices (instruments only; arg must be an integer)
+-osc: activate OSC control
+-style S: select the stylesheet (arg must be Default, Blue, Grey or Salmon)
+
+Environment variables:
+FAUSTINC: specify the location of the Faust include directory
+  Default: $FAUSTINC
+FAUSTLIB: specify the location of the Faust VST library files
+  Default: $FAUSTLIB
+QMAKE: specify the location of the qmake binary
+  Default: $QMAKE
 EOF
 	exit 0
     elif [ $p = "-omp" ]; then
@@ -55,15 +87,24 @@ EOF
 	CXX=icpc
     	CXXFLAGS="-O3 -xHost -ftz -fno-alias -fp-model fast=2"
     elif [ $p = "-osc" ]; then
-    	: ignore
+    	OSCDEFS="DEFINES += OSCCTRL"
+        OSCLIBS="-lOSCFaust"
     elif [ $p = "-httpd" ]; then
-    	: ignore
+    	HTTPDEFS="DEFINES += HTTPCTRL"
+	HTTPLIBS="-lHTTPDFaust -lmicrohttpd -lqrencode"
+    elif [ $p = "-qrcode" ]; then # requires -httpd
+	QRDEFS="DEFINES += QRCODECTRL"
     elif [ $p = "-nometa" ]; then
     	FAUST_META=0
     elif [ $p = "-nomidicc" ]; then
     	FAUST_MIDICC=0
     elif [ $p = "-notuning" ]; then
     	FAUST_MTS=0
+    elif [ $p = "-novoicectrls" ]; then
+    	VOICE_CTRLS=0
+    elif [ $p = "-gui" ]; then
+    	FAUST_UI=1
+    	plugin_gui=yes
     elif [ $p = "-nvoices" ]; then
 	(( i++ ))
     	NVOICES=${!i}
@@ -76,6 +117,9 @@ EOF
 	dllext=".vst"
     elif [ $p = "-keep" ]; then
 	KEEP="yes"
+    elif [ $p = "-style" ]; then
+	(( i++ ))
+    	STYLE=${!i}
     elif [ ${p:0:1} = "-" ]; then
 	OPTIONS="$OPTIONS $p"
     elif [[ -f "$p" ]]; then
@@ -94,17 +138,31 @@ elif [ ${#FILES[@]} -gt 1 ]; then
     exit 1
 fi
 
+# Check to see whether the required include and library files are where we
+# expect them, and bail out with an error message otherwise.
+if [ ! -f "$FAUSTINC/gui/faustqt.h" ]; then echo "$0: faust include files not found" >&2; exit 1; fi
+if [ ! -f "$FAUSTLIB/faustvstqt.h" ]; then echo "$0: faust-vst library files not found" >&2; exit 1; fi
+
 arch=faustvst.cpp
 dspname=${FILES[0]}
 SRCDIR=$(dirname "$dspname")
+ABSDIR=$(cd $SRCDIR && pwd)
+CURDIR=$(pwd)
 
 clsname=`basename "$dspname" .dsp`
 cppname="$clsname.cpp"
 soname="$clsname$dllext"
 tmpdir=`mktemp -d /tmp/faust2faustvst.XXXXXX`
 
+RESOURCES=
+STYLE_CXXFLAGS=
+if [ -n "$STYLE" ]; then
+    RESOURCES="RESOURCES+=$FAUSTINC/gui/Styles/$STYLE.qrc"
+    STYLE_CXXFLAGS="QMAKE_CXXFLAGS+=-DSTYLE=\"$STYLE\""
+fi
+
 CXX=g++
-CPPFLAGS="-DFAUST_META=$FAUST_META -DFAUST_MIDICC=$FAUST_MIDICC -DFAUST_MTS=$FAUST_MTS -I$SDK -I$SDKSRC -D__cdecl="
+CPPFLAGS="-DFAUST_META=$FAUST_META -DFAUST_MIDICC=$FAUST_MIDICC -DFAUST_MTS=$FAUST_MTS -DFAUST_UI=$FAUST_UI -DVOICE_CTRLS=$VOICE_CTRLS -I$SDK -I$SDKSRC -D__cdecl="
 if [ $NVOICES -ge 0 ]; then
 CPPFLAGS="$CPPFLAGS -DNVOICES=$NVOICES"
 fi
@@ -123,7 +181,17 @@ sdksrc="$SDKSRC/$main $SDKSRC/$afx $SDKSRC/$afxx"
 # Create the temp directory.
 mkdir -p $tmpdir
 # Compile the Faust module.
-faust -i -a $arch $OPTIONS "$dspname" -o "$tmpdir/$cppname"
+faust -i -a "$FAUSTLIB/$arch" $OPTIONS "$dspname" -o "$tmpdir/$cppname" || exit
+if [ -n "$plugin_gui" ]; then
+# We have to use qmake here.
+# XXXTODO: OSX support
+(
+    cd "$tmpdir"
+    $QMAKE -project -t lib -o ${clsname}.pro "CONFIG += gui plugin no_plugin_name_prefix warn_off" "QT += widgets printsupport network x11extras" "INCLUDEPATH+=$ABSDIR" "INCLUDEPATH+=$CURDIR" "INCLUDEPATH+=$FAUSTLIB" "INCLUDEPATH+=$FAUSTINC" "QMAKE_CXXFLAGS=$CPPFLAGS" $STYLE_CXXFLAGS "LIBS+=$ARCHLIB $OSCLIBS $HTTPLIBS" "SOURCES+=$SDKSRC/$main $SDKSRC/$afx $SDKSRC/$afxx" "HEADERS+=$FAUSTLIB/faustvstqt.h $FAUSTINC/gui/faustqt.h" $RESOURCES "$OSCDEFS" "$HTTPDEFS" "$QRDEFS"
+    $QMAKE *.pro
+    make
+) > /dev/null
+else
 if [[ $(uname) == Darwin ]]; then
     mkdir -p $tmpdir/$soname/Contents/MacOS
     printf '%s' 'BNDL????' > $tmpdir/$soname/Contents/PkgInfo
@@ -157,6 +225,7 @@ EOF
     $CXX -bundle $CXXFLAGS $FAUSTTOOLSFLAGS $PROCARCH $CPPFLAGS $sdksrc "$tmpdir/$cppname" -o "$tmpdir/$soname/Contents/MacOS/$clsname"
 else
     $CXX -shared $CXXFLAGS $FAUSTTOOLSFLAGS $PROCARCH $CPPFLAGS $sdksrc "$tmpdir/$cppname" -o "$tmpdir/$soname"
+fi
 fi
 
 # copy down the plugin (bundle on OS X)

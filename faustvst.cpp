@@ -587,6 +587,7 @@ struct VSTPlugin {
   const int ndsps;	// number of dsp instances (1 if maxvoices==0)
   int nvoices;		// current number of voices (<= maxvoices)
   bool active;		// activation status
+  bool modified;	// keep track of modified controls
   int rate;		// sampling rate
   mydsp **dsp;		// the dsps
   VSTUI **ui;		// their Faust interface descriptions
@@ -749,7 +750,7 @@ struct VSTPlugin {
       vd->lastgate = (float*)calloc(ndsps, sizeof(float));
       assert(vd->note_info && vd->lastgate);
     }
-    active = false;
+    active = modified = false;
     rate = sr;
     nvoices = maxvoices;
     n_in = n_out = 0;
@@ -1247,6 +1248,7 @@ struct VSTPlugin {
   {
     int n = dsp[0]->getNumInputs(), m = dsp[0]->getNumOutputs();
     AVOIDDENORMALS;
+    modified = false;
     if (maxvoices > 0) queued_notes_off();
     if (!active) {
       // Depending on the plugin architecture, this code might never be
@@ -1267,6 +1269,7 @@ struct VSTPlugin {
     }
     // Handle changes in the polyphony control.
     if (nvoices != poly && poly > 0 && poly <= maxvoices) {
+      modified = true;
       for (int i = 0; i < nvoices; i++)
 	voice_off(i);
       nvoices = poly;
@@ -1290,6 +1293,7 @@ struct VSTPlugin {
       int j = inctrls[i], k = ui[0]->elems[j].port;
       float &oldval = portvals[k], newval = ports[k];
       if (newval != oldval) {
+	modified = true;
 	if (is_instr) {
 	  // instrument: update running voices
 	  for (boost::circular_buffer<int>::iterator it =
@@ -1348,6 +1352,7 @@ struct VSTPlugin {
     // updated in real-time (if the host supports this at all).
     // FIXME: It's not clear how to aggregate the data of the different
     // voices. We compute the maximum of each control for now.
+    if (n_out > 0) modified = true;
     for (int i = 0; i < n_out; i++) {
       int j = outctrls[i], k = ui[0]->elems[j].port;
       float *z = ui[0]->elems[j].zone;
@@ -1647,6 +1652,7 @@ struct VSTPlugin {
   {
 #if FAUST_MTS
     if (!mts || num == tuning) return;
+    modified = true;
     if (num < 0) num = 0;
     if (num > mts->tuning.size())
       num = mts->tuning.size();
@@ -2199,10 +2205,10 @@ void VSTWrapper::processReplacing(float **inputs, float **outputs,
 				  VstInt32 n_samples)
 {
   plugin->process_audio(n_samples, inputs, outputs);
-  // Some hosts may require this to force a GUI update of the passive
-  // controls. XXXFIXME: Alas, some hosts don't seem to handle output
-  // parameters at all (e.g., Tracktion).
-  if (plugin->n_out > 0) updateDisplay();
+  // Some hosts may require this to force a GUI update of the controls.
+  // XXXFIXME: Alas, some hosts don't seem to handle this at all (e.g.,
+  // Tracktion).
+  if (plugin->modified) updateDisplay();
 }
 
 VstInt32 VSTWrapper::processEvents(VstEvents* events)

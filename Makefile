@@ -236,15 +236,15 @@ install-faust: faust2faustvst
 	test -d $(DESTDIR)$(bindir) || mkdir -p $(DESTDIR)$(bindir)
 	cp faust2faustvst $(DESTDIR)$(bindir)
 	test -d $(DESTDIR)$(faustlibdir) || mkdir -p $(DESTDIR)$(faustlibdir)
-	cp faustvst.cpp $(DESTDIR)$(faustlibdir)
+	cp faustvst.cpp faustvstqt.h $(DESTDIR)$(faustlibdir)
 
 uninstall-faust:
 	rm -f $(DESTDIR)$(bindir)/faust2faustvst
-	rm -f $(DESTDIR)$(faustlibdir)/faustvst.cpp
+	rm -f $(addprefix $(DESTDIR)$(faustlibdir)/, faustvst.cpp faustvstqt.h)
 
 # Roll a distribution tarball.
 
-DISTFILES = COPYING COPYING.LESSER Makefile README.md config.guess faust2faustvst.in faustvst.cpp Info.plist.in examples/*.dsp examples/*.lib examples/*.h
+DISTFILES = COPYING COPYING.LESSER Makefile README.md config.guess faust2faustvst.in faustvst.cpp faustvstqt.h Info.plist.in examples/*.dsp examples/*.lib examples/*.h
 
 dist:
 	rm -rf $(dist)

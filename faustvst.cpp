@@ -1686,12 +1686,13 @@ MTSTunings *VSTPlugin::mts = 0;
 #endif
 
 /* NOTE: Some hosts are blacklisted here due to incompatibilities with the
-   optional Qt GUI code. (You can comment out the following define to enable
-   the GUI in all hosts for testing purposes.) Note that the VST plugins will
-   run in these hosts, just without a custom GUI. To get the GUI, you can run
-   them inside Carla. For Ardour, we recommend using the LV2 architecture with
-   Qt4 GUIs instead. */
-#define HOST_BLACKLIST { "Ardour", "Tracktion", NULL }
+   optional Qt GUI code. Ardour is particularly bad, but you may want to put
+   other hosts on this list if they give you random crashes. You can also
+   comment out the following define to enable the GUI in all hosts for testing
+   purposes. Note that in any case the VST plugins *will* run in the
+   blacklisted hosts, just without a custom GUI. */
+#define HOST_BLACKLIST { "Ardour", NULL }
+//#define HOST_BLACKLIST { "Ardour", "Tracktion", NULL }
 
 class VSTWrapper : public AudioEffectX
 {

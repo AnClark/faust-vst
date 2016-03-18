@@ -13,53 +13,55 @@ class OSCUI;
 class httpdUI;
 #endif
 
-class VSTQtGUI : public QObject, public AEffEditor{
-    Q_OBJECT
+class VSTQtGUI : public QObject, public AEffEditor {
+  Q_OBJECT
 
-    VSTWrapper* effect;
-    QScrollArea* widget;
-    void *uidsp;
-    QTGUI* qtinterface;
+  VSTWrapper* effect;
+  QScrollArea* widget;
+  void *uidsp;
 #ifdef OSCCTRL
-    OSCUI* oscinterface;
+  OSCUI* oscinterface;
 #endif
 #ifdef HTTPCTRL
-    httpdUI *httpdinterface;
+  httpdUI *httpdinterface;
 #endif
-    QWindow* hostWindow;
+  QTGUI* qtinterface;
 
-    // passiveControls: passive control elements needing continuous GUI update
-    QVector<QObject*> passiveControls;
+  // vector of all GUI controls, indexed by parameter indices
+  QVector<QObject*> controls;
+  // cached control values, so that we only update the GUI when needed
+  float *control_values;
+  // vector of all passive controls needing continuous update (this isn't used
+  // right now, as all live updates are done through the controls vector, but
+  // we keep it around for debugging purposes)
+  QVector<QObject*> passive_controls;
 
 public:
-    VSTQtGUI(VSTWrapper* effect);
-    ~VSTQtGUI();
+  VSTQtGUI(VSTWrapper* effect);
+  ~VSTQtGUI();
 
-    // open(): opens the GUI
-    virtual bool open(void *ptr);
-    // getRect(): determines the size of the GUI
-    virtual bool getRect (ERect** rect);
-    // idle(): event processing is done here
-    virtual void idle ();
-    // close(): closes the GUI
-    virtual void close();
+  // open(): opens the GUI
+  virtual bool open(void *ptr);
+  // getRect(): determines the size of the GUI
+  virtual bool getRect (ERect** rect);
+  // idle(): event processing is done here
+  virtual void idle ();
+  // close(): closes the GUI
+  virtual void close();
 
-    float valueToVST(double value, double minimum, double maximum);
-    void updateQTGUI(QObject* object, float value);
+  float valueToVST(double value, double minimum, double maximum);
+  void updateQTGUI(QObject* object, float value, bool init = false);
+  void updatePassiveControl(QObject* object, float value);
 
 protected:
-    ERect rectangle;
-    float voices_zone, tuning_zone;
-
-signals:
-    void getVSTParameters(QObject* object);
+  ERect rectangle;
+  float voices_zone, tuning_zone;
 
 public slots:
-    void updateVST_buttonPressed();
-    void updateVST_buttonReleased();
-    void updateVST_checkBox();
-    void updateVST();
-    void updatePassiveControl(QObject* object);
+  void updateVST_buttonPressed();
+  void updateVST_buttonReleased();
+  void updateVST_checkBox();
+  void updateVST();
 
 };
 

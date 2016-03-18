@@ -1685,14 +1685,12 @@ MTSTunings *VSTPlugin::mts = 0;
 #include "faustvstqt.h"
 #endif
 
-/* NOTE: Some hosts are blacklisted here due to various incompatibilities with
-   the optional GUI code. (Commenting out the following define enables the GUI
-   in all hosts for testing purposes.) Ardour requires Qt4 GUIs and thus will
-   *not* work with our GUI code which currently works with Qt5 only. Tracktion
-   also gave occasional crashes in our tests, so it is disabled for now as
-   well. Note that the VST plugins will run in these hosts, just without a
-   custom GUI. To get the GUI, you can run them inside Carla. (For Ardour, we
-   recommend using the LV2 architecture with Qt4 GUIs instead.) */
+/* NOTE: Some hosts are blacklisted here due to incompatibilities with the
+   optional Qt GUI code. (You can comment out the following define to enable
+   the GUI in all hosts for testing purposes.) Note that the VST plugins will
+   run in these hosts, just without a custom GUI. To get the GUI, you can run
+   them inside Carla. For Ardour, we recommend using the LV2 architecture with
+   Qt4 GUIs instead. */
 #define HOST_BLACKLIST { "Ardour", "Tracktion", NULL }
 
 class VSTWrapper : public AudioEffectX
@@ -2373,11 +2371,10 @@ const char *VSTWrapper::getHostName()
 #endif
 
 #include <QWidget>
-#include <QWindow>
 #include <QX11Info>
 #include <X11/Xlib.h>
 
-#line 2366 "faustvst.cpp"
+#line 2378 "faustvst.cpp"
 
 std::list<GUI*> GUI::fGuiList;
 
@@ -2396,14 +2393,14 @@ std::list<GUI*> GUI::fGuiList;
  * @param effect
  */
 VSTQtGUI::VSTQtGUI(VSTWrapper* effect) : effect(effect),
-  widget(NULL), uidsp(NULL), qtinterface(NULL),
+  widget(NULL), uidsp(NULL),
 #ifdef OSCCTRL
   oscinterface(NULL),
 #endif
 #ifdef HTTPCTRL
   httpdinterface(NULL),
 #endif
-  hostWindow(NULL)
+  qtinterface(NULL)
 {
   static int argc = 0;
   static char* argv[1] = {0};
@@ -2417,6 +2414,13 @@ VSTQtGUI::VSTQtGUI(VSTWrapper* effect) : effect(effect),
 #endif
     new QApplication(argc, argv);
   }
+
+  int n_controls = effect->getNumControls();
+  // instruments can have up to 2 controls more (poly+tuning)
+  if (effect->getMaxVoices()>0) n_controls += 2;
+  // this array is used to keep track of the current status of control values;
+  // GUI controls are only set if the value has changed
+  control_values = (float*)calloc(n_controls, sizeof(float));
 
 #if FAUSTQT_DEBUG
   qDebug() << "qApp=" << qApp;
@@ -2434,6 +2438,7 @@ VSTQtGUI::VSTQtGUI(VSTWrapper* effect) : effect(effect),
  */
 VSTQtGUI::~VSTQtGUI()
 {
+  if (control_values) free(control_values);
 }
 
 // This is a little wrapper class around QTGUI which takes care of eliminating
@@ -2646,10 +2651,11 @@ bool VSTQtGUI::open(void *ptr)
       qDebug("found slider!");
 #endif
       slider->setProperty("vstParam", vstParamCount);
+      controls.append(slider);
 
       connect(slider, SIGNAL(valueChanged(int)), this, SLOT(updateVST()),
               Qt::QueuedConnection);
-      updateQTGUI(slider, effect->getParameter(vstParamCount));
+      updateQTGUI(slider, effect->getParameter(vstParamCount), true);
 
       vstParamCount++;
     }
@@ -2661,10 +2667,11 @@ bool VSTQtGUI::open(void *ptr)
       qDebug("found knob!");
 #endif
       dial->setProperty("vstParam", vstParamCount);
+      controls.append(dial);
 
       connect(dial, SIGNAL(valueChanged(int)), this, SLOT(updateVST()),
               Qt::QueuedConnection);
-      updateQTGUI(dial, effect->getParameter(vstParamCount));
+      updateQTGUI(dial, effect->getParameter(vstParamCount), true);
 
       vstParamCount++;
     }
@@ -2676,6 +2683,7 @@ bool VSTQtGUI::open(void *ptr)
       qDebug("found button!");
 #endif
       button->setProperty("vstParam", vstParamCount);
+      controls.append(button);
 
       connect(button, SIGNAL(pressed()), this,
 	      SLOT(updateVST_buttonPressed()), Qt::QueuedConnection);
@@ -2684,6 +2692,7 @@ bool VSTQtGUI::open(void *ptr)
 
       // button is released when GUI opens
       effect->setParameter(vstParamCount, 0.0f);
+      control_values[vstParamCount] = 0.0f;
 
       vstParamCount++;
     }
@@ -2698,11 +2707,12 @@ bool VSTQtGUI::open(void *ptr)
         qDebug("found list!");
 #endif
         num->setProperty("vstParam", vstParamCount);
+        controls.append(num);
 
         connect(num, SIGNAL(valueChanged(double)), this, SLOT(updateVST()),
                 Qt::QueuedConnection);
 
-        updateQTGUI(num, effect->getParameter(vstParamCount));
+        updateQTGUI(num, effect->getParameter(vstParamCount), true);
 
         vstParamCount++;
 
@@ -2716,8 +2726,7 @@ bool VSTQtGUI::open(void *ptr)
         qDebug("found numDisplay!");
 #endif
         num->setProperty("vstParam", vstParamCount-1);
-
-        passiveControls.append(num);
+        passive_controls.append(num);
 
         // the corresponding display of the vBargraphs is now set
         vBargraphChecked = true;
@@ -2732,8 +2741,9 @@ bool VSTQtGUI::open(void *ptr)
           qDebug("found horizontal bargraph with numerical style!");
 #endif
           num->setProperty("vstParam", vstParamCount);
-
-          passiveControls.append(num);
+	  controls.append(num);
+          passive_controls.append(num);
+	  control_values[vstParamCount] = effect->getMinimum(vstParamCount);
 
           vstParamCount++;
         }
@@ -2747,16 +2757,20 @@ bool VSTQtGUI::open(void *ptr)
       qDebug("found checkbox!");
 #endif
       checkBox->setProperty("vstParam", vstParamCount);
+      controls.append(checkBox);
 
       connect(checkBox, SIGNAL(stateChanged(int)), this,
 	      SLOT(updateVST_checkBox()), Qt::QueuedConnection);
 
       // if the VST parameter of the checkbox is less than 0.5 then the
       // checkbox is unchecked
-      if(effect->getParameter(vstParamCount) < 0.5f)
+      if(effect->getParameter(vstParamCount) < 0.5f) {
         checkBox->setChecked(false);
-      else
+	control_values[vstParamCount] = 0.0f;
+      } else {
         checkBox->setChecked(true);
+	control_values[vstParamCount] = 1.0f;
+      }
 
       vstParamCount++;
     }
@@ -2777,8 +2791,9 @@ bool VSTQtGUI::open(void *ptr)
 
       bargraph->setProperty("vstParam", vstParamCount);
       //led->setProperty("elemType", "led");
-
-      passiveControls.append(bargraph);
+      controls.append(bargraph);
+      passive_controls.append(bargraph);
+      control_values[vstParamCount] = effect->getMinimum(vstParamCount);
 
       vstParamCount++;
     }
@@ -2820,6 +2835,10 @@ bool VSTQtGUI::open(void *ptr)
         }
         radioCount++;
       }
+      // XXXFIXME: there's no single GUI object for this control, skipped for
+      // now (need list of QObjects to cope with this)
+      controls.append(NULL);
+      control_values[vstParamCount] = 0.0f;
       vstParamCount++;
     }
 
@@ -2837,11 +2856,12 @@ bool VSTQtGUI::open(void *ptr)
       menu->setProperty("minimum", minimum);
       menu->setProperty("maximum", maximum);
       menu->setProperty("singleStep", effect->getStep(vstParamCount));
+      controls.append(menu);
 
       connect(menu, SIGNAL(activated(int)), this, SLOT(updateVST()),
               Qt::QueuedConnection);
 
-      updateQTGUI(menu, effect->getParameter(vstParamCount));
+      updateQTGUI(menu, effect->getParameter(vstParamCount), true);
       menu->updateZone(0);    // updates the currentIndex
 
       vstParamCount++;
@@ -2892,32 +2912,16 @@ bool VSTQtGUI::open(void *ptr)
 #endif
 
   // embed the plug-in widget into the window provided by the host
-  hostWindow = QWindow::fromWinId(WId(ptr));
-#if FAUSTQT_DEBUG
-  //qDebug() << "hostWindow: " << hostWindow;
-#endif
   Display* display = QX11Info::display();
-  XReparentWindow(display, widget->winId(), hostWindow->winId(), 0, 0);
-  XMapWindow(display, hostWindow->winId());
+  XReparentWindow(display, widget->winId(), WId(ptr), 0, 0);
+  XMapWindow(display, WId(ptr));
   XFlush(display);
 
   widget->show();
 
 #if FAUSTQT_DEBUG>1
-  qDebug() << "Count of passive controls: " << passiveControls.size();
-#endif
-
-  // this connection takes care of updating the passive control elements
-  connect(this, SIGNAL(getVSTParameters(QObject*)), this,
-          SLOT(updatePassiveControl(QObject*)), Qt::UniqueConnection);
-
-#if FAUSTQT_DEBUG>2
-  // debugging output: Which objects trigger a certain signal? This only
-  // works with the debug version of Qt.
-
-  //qtinterface->dumpObjectInfo();
-  //int QObject::receivers ( const char * signal ) const [protected]
-  //qDebug() << "DebugInfo: " << QObject::dumpObjectInfo();
+  qDebug() << "Number of controls: " << controls.size();
+  qDebug() << "Number of passive controls: " << passive_controls.size();
 #endif
 
   uidsp = dsp;
@@ -2928,16 +2932,20 @@ bool VSTQtGUI::open(void *ptr)
  * @brief VSTQtGUI::idle
  * - idle() is called repeatedly at some time interval determined by the host
  *   to process any pending GUI events
- * - if there are any passive control elements in the GUI then this also emits
- *   the getVSTParameters(QObject*) signal
+ * - it also updates control elements in the GUI as needed
  */
 void VSTQtGUI::idle()
 {
   if (qApp) {
     QApplication::processEvents();
-    for (int i = 0; i < passiveControls.size(); ++i) {
-      emit getVSTParameters(passiveControls.at(i));
-    }
+    for (int i = 0; i < controls.size(); ++i)
+      if (controls[i]) {
+	float val = effect->getParameter(i);
+	if (effect->isPassiveControl(i))
+	  updatePassiveControl(controls[i], val);
+	else
+	  updateQTGUI(controls[i], val);
+      }
   }
 #if FAUSTQT_DEBUG
   else
@@ -2948,7 +2956,7 @@ void VSTQtGUI::idle()
 /**
  * @brief VSTQtGUI::close
  * - when closing the plugin GUI, all GUI elements are destroyed and the
- *   passiveControls vectors is cleared
+ *   controls and passive_controls vectors are cleared
  */
 void VSTQtGUI::close()
 {
@@ -2967,12 +2975,11 @@ void VSTQtGUI::close()
   qtinterface = NULL;
   delete widget;
   widget = NULL;
-  delete hostWindow;
-  hostWindow = NULL;
   mydsp* dsp = (mydsp*)uidsp;
   delete dsp;
   dsp = NULL;
-  passiveControls.clear();
+  controls.clear();
+  passive_controls.clear();
 
 #if FAUSTQT_DEBUG
   qDebug("close editor");
@@ -3015,47 +3022,79 @@ float VSTQtGUI::valueToVST(double value, double minimum,
 /**
  * @brief VSTQtGUI::updateQTGUI
  * - method to update a GUI element
- * - called for GUI elements in the open() method
+ * - called for GUI elements in the open() and idle() methods
  * - VST values are converted to Faust ranges to determine the position of
  *   sliders, knobs, etc.
  * @param object
  * @param value
  */
-void VSTQtGUI::updateQTGUI(QObject* object, float value)
+void VSTQtGUI::updateQTGUI(QObject* object, float value, bool init)
 {
-  const double eps = 1e-5;
-  double minimum, maximum, step, newValue;
-  char* valueChar;
+  int vstParam = object->property("vstParam").toInt();
+  if (init || control_values[vstParam] != value) {
+    const double eps = 1e-5;
+    double minimum, maximum, step, newValue;
+    char* valueChar;
 
-  if (QString(object->metaObject()->className())=="uiMenu")
-    valueChar = "currentIndex";
-  else
-    valueChar = "value";
+    control_values[vstParam] = value;
 
-  minimum = object->property("minimum").toDouble();
-  maximum = object->property("maximum").toDouble();
-  step    = object->property("singleStep").toDouble();
+    if (QString(object->metaObject()->className())=="uiMenu")
+      valueChar = "currentIndex";
+    else
+      valueChar = "value";
+
+    minimum = object->property("minimum").toDouble();
+    maximum = object->property("maximum").toDouble();
+    step    = object->property("singleStep").toDouble();
 
 #if FAUSTQT_DEBUG>1
-  qDebug() << "QTGUI: VST value: " << value;
-  qDebug() << "QTGUI: old Qt value: "
-	   << object->property(valueChar).toDouble();
+    qDebug() << "QTGUI: VST value: " << value;
+    qDebug() << "QTGUI: old Qt value: "
+	     << object->property(valueChar).toDouble();
 #endif
 
-  newValue = (minimum==maximum)?minimum : minimum+quantize(value*
-             (maximum-minimum), step);
+    newValue = (minimum==maximum)?minimum : minimum+quantize(value*
+               (maximum-minimum), step);
 
-  if (fabs(newValue) < fabs(step) ||
-      fabs(newValue)/fabs(maximum-minimum) < eps)
-    newValue = 0.0;
+    if (fabs(newValue) < fabs(step) ||
+	fabs(newValue)/fabs(maximum-minimum) < eps)
+      newValue = 0.0;
 
-  // set new value with setProperty("value",..), as setValue() is not
-  // defined for QObject
-  object->setProperty(valueChar, newValue);
+    // set new value with setProperty("value",..), as setValue() is not
+    // defined for QObject
+    object->setProperty(valueChar, newValue);
 #if FAUSTQT_DEBUG>1
-  qDebug() << "QTGUI: new Qt value: "
-	   << object->property(valueChar).toDouble();
+    qDebug() << "QTGUI: new Qt value: "
+	     << object->property(valueChar).toDouble();
 #endif
+  }
+}
+
+/**
+ * @brief VSTQtGUI::updatePassiveControl
+ * - method to update the passive control elements (bargraphs)
+ * - called in idle()
+ * @param object
+ */
+void VSTQtGUI::updatePassiveControl(QObject* object, float value)
+{
+  int vstParam = object->property("vstParam").toInt();
+  float minimum  = effect->getMinimum(vstParam);
+  float maximum  = effect->getMaximum(vstParam);
+
+  if (control_values[vstParam] != value) {
+    // convert the VST value back to the corresponding Faust value
+    float fValue = value*maximum - value*minimum + minimum;
+
+    AbstractDisplay* bargraph  = dynamic_cast<AbstractDisplay*>(object);
+    QDoubleSpinBox* numDisplay = dynamic_cast<QDoubleSpinBox*>(object);
+
+    if(bargraph)
+      bargraph->setValue(fValue);
+    else if(numDisplay)
+      numDisplay->setValue(fValue);
+    control_values[vstParam] = value;
+  }
 }
 
 
@@ -3078,6 +3117,7 @@ void VSTQtGUI::updateVST_buttonPressed()
   qDebug() << "VST: button pressed";
 #endif
   effect->setParameter(vstParam, 1.0f);
+  control_values[vstParam] = 1.0f;
 }
 
 /**
@@ -3092,6 +3132,7 @@ void VSTQtGUI::updateVST_buttonReleased()
   qDebug() << "VST: button released";
 #endif
   effect->setParameter(vstParam, 0.0f);
+  control_values[vstParam] = 0.0f;
 }
 
 /**
@@ -3111,11 +3152,13 @@ void VSTQtGUI::updateVST_checkBox()
     qDebug("checkbox checked");
 #endif
     effect->setParameter(vstParam, 1.0f);
+    control_values[vstParam] = 1.0f;
   } else {
 #if FAUSTQT_DEBUG>1
     qDebug("checkbox unchecked");
 #endif
     effect->setParameter(vstParam, 0.0f);
+    control_values[vstParam] = 0.0f;
   }
 }
 
@@ -3154,6 +3197,7 @@ void VSTQtGUI::updateVST()
 
   float newFloat = valueToVST(value, minimum, maximum);
   effect->setParameter(vstParam, newFloat);
+  control_values[vstParam] = newFloat;
 #if FAUSTQT_DEBUG>1
   qDebug() << "VST: new VST value: " << effect->getParameter(vstParam);
 #endif
@@ -3165,38 +3209,11 @@ void VSTQtGUI::updateVST()
     char text[32];
     effect->getParameterDisplay(vstParam, text);
     widget->setToolTip(text);
+    // Also make sure that we trigger a host GUI update for changes in the
+    // tuning control here, since this isn't done elsewhere.
+    if (vstParam > effect->getNumControls())
+      effect->updateDisplay();
   }
-#endif
-}
-
-/**
- * @brief VSTQtGUI::updatePassiveControl
- * - slot for the passive control elements (horizontal/vertical bargraphs)
- * - this slot is called for each call of idle(), if the plug-in has passive
- *   control elements
- * @param object
- */
-void VSTQtGUI::updatePassiveControl(QObject* object)
-{
-  int vstParam = object->property("vstParam").toInt();
-  float minimum  = effect->getMinimum(vstParam);
-  float maximum  = effect->getMaximum(vstParam);
-  float vstValue = effect->getParameter(vstParam);
-
-  // convert the VST value back to the corresponding Faust value
-  float fValue = vstValue*maximum - vstValue*minimum + minimum;
-
-  AbstractDisplay* bargraph  = dynamic_cast<AbstractDisplay*>(object);
-  QDoubleSpinBox* numDisplay = dynamic_cast<QDoubleSpinBox*>(object);
-
-  if(bargraph)
-    bargraph->setValue(fValue);
-  else if(numDisplay)
-    numDisplay->setValue(fValue);
-
-#if FAUSTQT_DEBUG>1
-  //qDebug() << "vstValue: " << vstValue;
-  //qDebug() << "fValue: "   << fValue;
 #endif
 }
 

@@ -22,12 +22,21 @@ endif
 incdir = $(faustprefix)/include
 faustincdir = $(incdir)/faust
 
-# Set this variable to build the plugin GUIs. This option requires Qt5.
+# Set this variable to build the plugin GUIs. This option requires Qt4 or Qt5
+# (Qt5 is recommended).
 gui = 0
 
-# qmake setup (for GUI compilation). You may have to set this explicitly if
-# the qmake executable isn't found.
-qmake=$(shell which qmake-qt5 || which /opt/local/libexec/qt5/bin/qmake || echo qmake)
+# qmake setup (for GUI compilation). We prefer Qt5 if it is available. You may
+# have to set this explicitly if the qmake executable isn't found or you want
+# to choose a different Qt version.
+qmake=$(shell which qmake-qt5 || which /opt/local/libexec/qt5/bin/qmake || which qmake-qt4 || which /opt/local/libexec/qt4/bin/qmake || echo qmake)
+
+# Determine the Qt version so that we can pick the needed compilation options.
+qtversion = $(shell $(qmake) -v 2>/dev/null | tail -1 | sed 's/.*Qt version \([0-9]\).*/\1/')
+
+ifeq ($(qtversion),5)
+QTEXTRA = x11extras
+endif
 
 # Check for some common locations of the SDK files. This falls back to
 # /usr/local/src/vstsdk if none of these are found. In that case, or if make
@@ -209,10 +218,10 @@ else
 	$(CXX) $(shared) $^ -o $@
 endif
 else
-# We need to invoke qmake here. You must have Qt5 installed to make this work.
+# We need to invoke qmake here. This needs Qt4 or Qt5.
 # XXXTODO: OSX support
 %$(DLL): %.cpp $(extra_objects)
-	+(tmpdir=$(dir $@)$(notdir $(<:%.cpp=%.src)); rm -rf $$tmpdir; mkdir -p $$tmpdir; cp $< $$tmpdir; cd $$tmpdir; $(qmake) -project -t lib -o "$(notdir $(<:%.cpp=%.pro))" "CONFIG += gui plugin no_plugin_name_prefix warn_off" "QT += widgets printsupport network x11extras" "INCLUDEPATH+=$(CURDIR)" "INCLUDEPATH+=.." "INCLUDEPATH+=$(faustincdir)" "QMAKE_CXXFLAGS=$(CXXFLAGS) $(EXTRA_CFLAGS) $(UI_DEFINES)" "LIBS+=$(UI_LIBS)" "LIBS+=$(addprefix $(CURDIR)/, $(extra_objects))" "HEADERS+=$(CURDIR)/faustvstqt.h" "HEADERS+=$(faustincdir)/gui/faustqt.h" "RESOURCES+=$(RESOURCES)"; $(qmake) *.pro && make && cp $(notdir $@) .. && cd $(CURDIR) && ($(KEEP) || rm -rf $$tmpdir))
+	+(tmpdir=$(dir $@)$(notdir $(<:%.cpp=%.src)); rm -rf $$tmpdir; mkdir -p $$tmpdir; cp $< $$tmpdir; cd $$tmpdir; $(qmake) -project -t lib -o "$(notdir $(<:%.cpp=%.pro))" "CONFIG += gui plugin no_plugin_name_prefix warn_off" "QT += widgets printsupport network $(QTEXTRA)" "INCLUDEPATH+=$(CURDIR)" "INCLUDEPATH+=.." "INCLUDEPATH+=$(faustincdir)" "QMAKE_CXXFLAGS=$(CXXFLAGS) $(EXTRA_CFLAGS) $(UI_DEFINES)" "LIBS+=$(UI_LIBS)" "LIBS+=$(addprefix $(CURDIR)/, $(extra_objects))" "HEADERS+=$(CURDIR)/faustvstqt.h" "HEADERS+=$(faustincdir)/gui/faustqt.h" "RESOURCES+=$(RESOURCES)"; $(qmake) *.pro && make && cp $(notdir $@) .. && cd $(CURDIR) && ($(KEEP) || rm -rf $$tmpdir))
 endif
 
 # Clean.

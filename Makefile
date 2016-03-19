@@ -220,8 +220,10 @@ endif
 else
 # We need to invoke qmake here. This needs Qt4 or Qt5.
 # XXXTODO: OSX support
+ifneq "$(DLL)" ".vst"
 %$(DLL): %.cpp $(extra_objects)
 	+(tmpdir=$(dir $@)$(notdir $(<:%.cpp=%.src)); rm -rf $$tmpdir; mkdir -p $$tmpdir; cp $< $$tmpdir; cd $$tmpdir; $(qmake) -project -t lib -o "$(notdir $(<:%.cpp=%.pro))" "CONFIG += gui plugin no_plugin_name_prefix warn_off" "QT += widgets printsupport network $(QTEXTRA)" "INCLUDEPATH+=$(CURDIR)" "INCLUDEPATH+=.." "INCLUDEPATH+=$(faustincdir)" "QMAKE_CXXFLAGS=$(CXXFLAGS) $(EXTRA_CFLAGS) $(UI_DEFINES)" "LIBS+=$(UI_LIBS)" "LIBS+=$(addprefix $(CURDIR)/, $(extra_objects))" "HEADERS+=$(CURDIR)/faustvstqt.h" "HEADERS+=$(faustincdir)/gui/faustqt.h" "RESOURCES+=$(RESOURCES)"; $(qmake) *.pro && make && cp $(notdir $@) .. && cd $(CURDIR) && ($(KEEP) || rm -rf $$tmpdir))
+endif
 endif
 
 # Clean.

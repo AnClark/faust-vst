@@ -223,10 +223,11 @@ the tuning in real-time. Please check the faust-lv2 documentation for details.
 GUI Support
 ===========
 
-GUI support also works in the same manner as with faust-lv2. This is still
-somewhat experimental, so expect some bugs (check "Known Issues" below).
-To compile the plugins with GUI support, make sure that you have Qt4 or Qt5
-installed (the latter is recommended) and run `make` as follows:
+GUI support also works in the same manner as with faust-lv2. This is currently
+only supported on Linux and still somewhat experimental, so expect some bugs
+(check "Known Issues" below). To compile the plugins with GUI support, make
+sure that you have Qt4 or Qt5 installed (the latter is recommended) and run
+`make` as follows:
 
     make gui=1
 
@@ -254,21 +255,21 @@ check the faust-lv2 documentation for details.
 Known Issues
 ============
 
-Qt plugin GUIs are well-known to cause problems with some hosts, as they may
-give rise to library incompatibilities and multithreading issues. Ardour seems
-to cause the most serious issues right now, and thus the custom GUIs are
-completely disabled at runtime when running the plugins in that DAW (we
-suggest using faust-lv2 with Ardour instead). If you notice random crashes or
+Custom plugin GUIs are currently supported on Linux only. Even on Linux, Qt
+GUIs are known to cause problems with some VST hosts due to library
+incompatibilities and multithreading issues. Therefore custom GUIs are
+disabled in Ardour right now (we suggest using faust-lv2 with Qt4 GUIs
+instead, these seem to work fine in Ardour). If you notice random crashes or
 other issues with the host that you're using, you may either want to run the
 plugins through a modular host like [Carla](https://github.com/falkTX/Carla)
 or just disable GUI support in the plugins and use the host-provided generic
 GUIs instead.
 
-Some hosts don't seem to recognize the Faust-generated VST plugins at all.
-This might be due to some missing (esoteric) meta data. If anyone can shed
-light on this issue, please let us know, so that we can fix it. For the time
-being, you can try to run the plugins through Carla or some other modular host
-instead.
+On Mac OS X some hosts don't seem to recognize the Faust-generated VST plugins
+at all. This might be due to some missing (esoteric) meta data. If anyone can
+shed light on this issue, please let us know, so that we can fix it. For the
+time being, you can try to run the plugins through Carla or some other modular
+host instead.
 
 Some hosts like Bitwig Studio and Qtractor don't seem to keep the plugin state
 across invocations. Others like Ardour, Carla, Reaper and Tracktion don't have

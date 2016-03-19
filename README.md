@@ -1,7 +1,7 @@
 faust-vst
 =========
 
-Albert Gräf <aggraef@gmail.com>, 2016-03-03
+Albert Gräf <aggraef@gmail.com>, 2016-03-19
 
 This project provides a [VST][1] plugin architecture for the [Faust][2]
 programming language. The package contains the Faust architecture,
@@ -9,34 +9,24 @@ faustvst.cpp, the faust2faustvst helper script which provides a quick way to
 compile a plugin, a collection of sample plugins written in Faust, and a
 generic GNU Makefile for compiling and installing the plugins.
 
-Please note that the faustvst.cpp architecture provided here is different from
-Yan Michalevsky's vst.cpp architecture included in the Faust distribution.
-faust-vst is a separate development based on the [faust-lv2][3] project, and
-as such it offers the same set of features as faust-lv2. Except for the
-portamento feature in the vst.cpp architecture, which isn't supported in
-faust-vst right now, the capabilities provided by our architecture are a
-strict superset of those of the vst.cpp architecture. In particular, faust-vst
-uses a voice assignment algorithm which properly deals with multi-channel MIDI
-data, and it provides automatic MIDI controller assignments and MTS tuning
-capabilities. Faust sources that have been developed for faust-lv2 should just
-take a recompile to make them work in exactly the same way in any VST host.
+faust-vst is a port of [faust-lv2][3] to the [VST][1] plugin standard, and as
+such it offers pretty much the same set of features. In particular, it
+supports both instruments and effects, has an advanced voice assignment
+algorithm which properly deals with multi-channel MIDI data, and provides
+automatic MIDI controller assignments and MTS tuning capabilities.  Faust
+sources that have been developed for faust-lv2 should just take a recompile to
+make them work in exactly the same way in any VST host (and vice versa).
 
-At present, faust-vst has been tested and is known to work on recent Linux and
-Mac OS X versions. Support for Windows should be a piece of cake, though. To
-improve cross-platform compatibility, faustvst.cpp doesn't include any GUI
-code; it completely relies on the VST host for rendering control GUIs. This
-keeps things simple, but it also means that if you want prettier GUIs then
-you'll have to code them yourself. Also, support for Faust's external OSC and
-HTTPD control facilities is still on the TODO list at this time.
-
-The architecture has been given some fairly thorough testing using various
-open-source and commercial DAWs on both Linux and Mac OS X, among them Ardour,
-Bitwig, Qtractor, Reaper and Tracktion. It appears to work fine with each of
-these, but if you notice any bugs then please head over to
+faust-vst has been tested and is known to work on recent Linux and Mac OS X
+versions. Support for Windows should be a piece of cake, though (contributions
+are welcome!). The architecture has been given some fairly thorough testing
+using various open-source and commercial DAWs on both Linux and Mac OS X,
+among them Ardour, Bitwig, Qtractor, Reaper and Tracktion. It appears to work
+fine with each of these, but if you notice any bugs then please head over to
 https://bitbucket.org/agraef/faust-vst and report them there.
 
 Copying
--------
+=======
 
 Like most other Faust architectures, faust-vst is licensed under the LGPL,
 please check the included COPYING and COPYING.LESSER files for details. This
@@ -45,8 +35,8 @@ software only if you also provide a means which lets users build your plugin
 with a suitably modified version of the architecture. (The only practical way
 to do this right now is to provide the Faust source of your plugin. If this
 doesn't suit you then feel free to contact me for obtaining a commercial
-license, or have a look at Yan Michalevsky's vst.cpp architecture which is
-licensed under a more liberal BSD-style license.)
+license, or have a look at CCRMA's alternative vst.cpp architecture by Yan
+Michalevsky which is licensed under a more liberal BSD-style license.)
 
 Note that in order to create a working VST plugin using the faustvst.cpp
 architecture, you'll also need Steinberg's VST SDK (see below). This is
@@ -56,14 +46,15 @@ Please check the documentation accompanying the VST SDK distribution for
 details.
 
 Prerequisites
--------------
+=============
 
 To compile plugins with the faustvst.cpp architecture, you need to have Faust,
-GNU make and a suitable C++ compiler installed. The Makefile uses whatever the
-CXX variable indicates. The faust2faustvst script uses gcc by default, but you
-can change this by editing the script file. Both gcc and clang should work out
-of the box, other C++ compilers may need some twiddling with the compiler
-options in the Makefile and the faust2faustvst script.
+GNU make, the Boost headers, Qt4 or Qt5 (if you want to utilize the custom
+plugin GUI support), and a suitable C++ compiler installed. The Makefile uses
+whatever the CXX variable indicates. The faust2faustvst script uses gcc by
+default, but you can change this by editing the script file. Both gcc and
+clang should work out of the box, other C++ compilers may need some twiddling
+with the compiler options in the Makefile and the faust2faustvst script.
 
 You'll also need the Steinberg SDK version 2.4 or later. A zip archive with
 the latest SDK version can be found here:
@@ -88,11 +79,10 @@ explicitly when invoking make:
     make SDK=/path/to/the/SDK
 
 You should specify an absolute path there; the Makefile will most likely work
-with a relative path as well, but then you'll always have to run
-faust2faustvst from the same directory.
+with a relative path as well, but faust2faustvst requires an absolute path.
 
 Installation
-------------
+============
 
 Make sure that you have the VST SDK installed in an appropriate location, as
 discussed above, then run `make` and `make install`. The latter will install
@@ -121,18 +111,12 @@ just examples which you can use to test that everything compiles ok and to
 check for compatibility of the plugins with your VST host. You may want to
 skip this step if you're only interested in compiling your own plugins.
 
-For compiling your own Faust sources, only the faustvst.cpp architecture and
-the faust2faustvst helper script are needed. As of 2016-02-09, these are now
-also included in the latest revisions of the Faust compiler, so if you
-installed Faust from the latest git sources after that date, chances are that
-you already have it.
-
-If you're still running an older Faust version shipping without faust-vst then
-the `make install-faust` target of this package provides you with a quick way
-to add the architecture and the helper script to your existing Faust
-installation. It copies these items to the appropriate directories; the
-faust2faustvst script goes into /usr/local/bin and the faustvst.cpp
-architecture into /usr/local/lib/faust by default.
+For compiling your own Faust sources, only the faustvst.cpp architecture, the
+accompanying faustvstqt.h header file and the faust2faustvst helper script are
+needed. Chances are that you already have those if you run a recent revision
+of the Faust compiler. Otherwise the `make install-faust` target of this
+package provides you with a quick way to add the architecture and the helper
+script to your existing Faust installation.
 
 Both `make install` and `make install-faust` let you adjust the installation
 prefix with the `prefix` make variable, and package maintainers can specify a
@@ -152,7 +136,7 @@ may require 64 bit plugins for the 64 bit version of the program. Going with
 the fat binaries should have you covered in either case.
 
 Usage
------
+=====
 
 As already mentioned, the present implementation is based on the code of the
 [faust-lv2][3] plugin architecture and provides pretty much the same set of
@@ -216,7 +200,7 @@ ordinary effect plugin without MIDI note processing. This is also the default
 if none of these options are specified.
 
 MTS Support
------------
+===========
 
 As with faust-lv2, VST instruments created with the faustvst.cpp architecture
 can be retuned using sysex messages in MTS (MIDI Tuning Standard) format. At
@@ -235,6 +219,62 @@ plugins which have been compiled with this option. This (automatable) control
 usually takes the form of a slider displaying both the tuning number and the
 basename of the corresponding sysex file. Changing the slider value adjusts
 the tuning in real-time. Please check the faust-lv2 documentation for details.
+
+GUI Support
+===========
+
+GUI support also works in the same manner as with faust-lv2. This is still
+somewhat experimental, so expect some bugs (check "Known Issues" below).
+To compile the plugins with GUI support, make sure that you have Qt4 or Qt5
+installed (the latter is recommended) and run `make` as follows:
+
+    make gui=1
+
+You may also have to specify the location of your `qmake` executable, which
+can be done as follows:
+
+    make gui=1 qmake=/usr/lib/qt5/bin/qmake
+
+The faust2faustvst script is run with the `-gui` option to build a GUI-enabled
+plugin (you can also use `-qt4` or `-qt5` to choose a particular Qt version):
+
+    faust2faustvst -gui amp.dsp
+
+The script will look for a suitable `qmake` executable in some common
+locations. Exactly which `qmake` will be chosen is displayed as the default
+value of the `QMAKE` environment variable if you run `faust2faustvst -h`. If
+`qmake` cannot be found then you'll have to set this variable accordingly,
+e.g.:
+
+    QMAKE=/usr/lib/qt5/bin/qmake faust2faustvst -gui amp.dsp
+
+The script sports the same GUI-related options as the faust2lv2 script; please
+check the faust-lv2 documentation for details.
+
+Known Issues
+============
+
+Qt plugin GUIs are well-known to cause problems with some hosts, as they may
+give rise to library incompatibilities and multithreading issues. Ardour seems
+to cause the most serious issues right now, and thus the custom GUIs are
+completely disabled at runtime when running the plugins in that DAW (we
+suggest using faust-lv2 with Ardour instead). If you notice random crashes or
+other issues with the host that you're using, you may either want to run the
+plugins through a modular host like [Carla](https://github.com/falkTX/Carla)
+or just disable GUI support in the plugins and use the host-provided generic
+GUIs instead.
+
+Some hosts don't seem to recognize the Faust-generated VST plugins at all.
+This might be due to some missing (esoteric) meta data. If anyone can shed
+light on this issue, please let us know, so that we can fix it. For the time
+being, you can try to run the plugins through Carla or some other modular host
+instead.
+
+Some hosts like Bitwig Studio and Qtractor don't seem to keep the plugin state
+across invocations. Others like Ardour, Carla, Reaper and Tracktion don't have
+this defect, so this is most likely a shortcoming of these specific DAWs.
+Again, you should be able to work around this by employing a modular host to
+run the plugins.
 
 [1]: http://www.steinberg.net/en/company/developers.html
 [2]: http://faust.grame.fr/

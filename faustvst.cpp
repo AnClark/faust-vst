@@ -1721,6 +1721,11 @@ public:
   virtual void getParameterDisplay(VstInt32 index, char *text);
   virtual void getParameterName(VstInt32 index, char *text);
 
+  virtual VstInt32 getChunk(void** data,
+			    bool isPreset = false);
+  virtual VstInt32 setChunk(void* data, VstInt32 byteSize,
+			    bool isPreset = false);
+
   virtual bool getInputProperties(VstInt32 index,
 				  VstPinProperties *properties);
   virtual bool getOutputProperties(VstInt32 index,
@@ -1756,7 +1761,7 @@ private:
 #if FAUST_UI
   char host[65];
 #endif
-  float *defprog;
+  float *progdata;
 };
 
 // Create a "unique" VST plugin ID using Murmur2 hashes. This can't possibly
@@ -1855,6 +1860,7 @@ VSTWrapper::VSTWrapper(audioMasterCallback audioMaster)
     setNumInputs(plugin->dsp[0]->getNumInputs());
     setNumOutputs(plugin->dsp[0]->getNumOutputs());
     canProcessReplacing();
+    programsAreChunks();
     if (plugin->maxvoices > 0) isSynth();
     // XXXFIXME: Maybe do something more clever for the unique id.
     setUniqueID((VstInt32)idhash(dsp_name));
@@ -1875,19 +1881,27 @@ VSTWrapper::VSTWrapper(audioMasterCallback audioMaster)
   // presets in a number of different formats, such as fxb and fxp files.
   curProgram = 0;
   setProgramName("Default");
-  // Initialize the program storage.
-  defprog = (float*)calloc(plugin->n_in, sizeof(float));
-  assert(plugin->n_in == 0 || defprog);
-  // At this point, the first n_in elements of plugin->ports should already be
-  // filled with the initial input control values, copy them over to the
-  // default program.
-  memcpy(defprog, plugin->ports, plugin->n_in*sizeof(float));
+  // Initialize the program storage. This is also used with getChunk/setChunk.
+  // We reserve two extra entries for the instrument poly and tuning controls
+  // here if needed.
+  int k = plugin->ui[0]->nports;
+#if FAUST_MTS
+  int m = (plugin->maxvoices > 0)?2:0;
+#else
+  int m = (plugin->maxvoices > 0)?1:0;
+#endif
+  progdata = (float*)calloc(k+m, sizeof(float));
+  assert(k+m == 0 || progdata);
+  // At this point, plugin->ports should already be filled with the initial
+  // control values, use getChunk to copy them over to the program storage.
+  void *data;
+  (void)getChunk(&data);
 }
 
 VSTWrapper::~VSTWrapper()
 {
   delete plugin;
-  if (defprog) free(defprog);
+  if (progdata) free(progdata);
 }
 
 // plugin activation and deactivation
@@ -1915,10 +1929,14 @@ void VSTWrapper::setProgram(VstInt32 prog)
 {
   if (prog < 0 || prog >= 1) return;
   curProgram = prog;
-  memcpy(plugin->ports, defprog, plugin->n_in*sizeof(float));
-  // Also reset the polyphony and tuning controls to their default values.
-  plugin->poly = plugin->maxvoices/2;
-  plugin->change_tuning(0);
+  int k = plugin->ui[0]->nports;
+  // instrument data size
+#if FAUST_MTS
+  int m = (plugin->maxvoices > 0)?2:0;
+#else
+  int m = (plugin->maxvoices > 0)?1:0;
+#endif
+  (void)setChunk(progdata, (k+m)*sizeof(float));
   // Some hosts may require this to force a GUI update of the parameters.
   updateDisplay();
 }
@@ -1944,6 +1962,47 @@ bool VSTWrapper::getProgramNameIndexed(VstInt32 category, VstInt32 index,
 }
 
 // control values (setters, getters, meta data)
+
+VstInt32 VSTWrapper::getChunk(void** data, bool isPreset)
+{
+  int k = plugin->ui[0]->nports;
+  // data for the k ports is already in plugin->ports, for instruments we also
+  // add the values of the polyphony and (if enabled) the tuning control
+  memcpy(progdata, plugin->ports, k*sizeof(float));
+  if (plugin->maxvoices > 0) {
+    progdata[k++] = plugin->poly;
+#if FAUST_MTS
+    progdata[k++] = plugin->tuning;
+#endif
+  }
+  *data = progdata;
+  return k*sizeof(float);
+}
+
+VstInt32 VSTWrapper::setChunk(void* data, VstInt32 byteSize, bool isPreset)
+{
+  int k = plugin->ui[0]->nports, l = byteSize/sizeof(float);
+  // instrument data size
+#if FAUST_MTS
+  int m = (plugin->maxvoices > 0)?2:0;
+#else
+  int m = (plugin->maxvoices > 0)?1:0;
+#endif
+  if (byteSize != (k+m)*sizeof(float)) return 0; // data size mismatch
+  // copy the data over to the program storage
+  if (progdata != data) memcpy(progdata, data, (k+m)*sizeof(float));
+  // set the control data
+  memcpy(plugin->ports, progdata, k*sizeof(float));
+  if (plugin->maxvoices > 0) {
+    plugin->poly = min(plugin->maxvoices, max(1, (int)progdata[k]));
+#if FAUST_MTS
+    plugin->change_tuning((int)progdata[k+1]);
+#endif
+  }
+  // Noone seems to know what the return value is good for. Just always
+  // returning zero reportedly works with existing hosts.
+  return 0;
+}
 
 void VSTWrapper::getParameterName(VstInt32 index, char *label)
 {
@@ -2375,7 +2434,7 @@ const char *VSTWrapper::getHostName()
 #include <QX11Info>
 #include <X11/Xlib.h>
 
-#line 2378 "faustvst.cpp"
+#line 2438 "faustvst.cpp"
 
 std::list<GUI*> GUI::fGuiList;
 

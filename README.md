@@ -271,12 +271,6 @@ shed light on this issue, please let us know, so that we can fix it. For the
 time being, you can try to run the plugins through Carla or some other modular
 host instead.
 
-Some hosts like Bitwig Studio and Qtractor don't seem to keep the plugin state
-across invocations. Others like Ardour, Carla, Reaper and Tracktion don't have
-this defect, so this is most likely a shortcoming of these specific DAWs.
-Again, you should be able to work around this by employing a modular host to
-run the plugins.
-
 [1]: http://www.steinberg.net/en/company/developers.html
 [2]: http://faust.grame.fr/
 [3]: https://bitbucket.org/agraef/faust-lv2

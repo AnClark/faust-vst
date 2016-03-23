@@ -2947,7 +2947,7 @@ bool VSTQtGUI::open(void *ptr)
   qtinterface->run();
 
   // The STYLE symbol is set during compilation when using the -style option
-  // of the faust2faustvstqt script or the corresponding options in the
+  // of the faust2faustvst script or the corresponding options in the
   // Makefile. You can also set this manually if needed, but note that the
   // corresponding resource needs to be present in the qmake project (this is
   // taken care of automagically when using the -style option). Otherwise (or

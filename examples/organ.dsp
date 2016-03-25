@@ -5,7 +5,6 @@ declare author "Albert Graef";
 declare version "1.0";
 
 // This declares that the module is an instrument with 16-voice polyphony.
-// (Right now this meta key is only supported in the faustvst architecture.)
 declare nvoices "16";
 
 import("music.lib");

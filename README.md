@@ -72,14 +72,10 @@ the version of the SDK you downloaded; at the time of this writing, VST SDK
 
 The faust-vst Makefile will look for the SDK files in some common locations
 (including the /usr/local/src/vstsdk path suggested above) and configure
-itself and the faust2faustvst script accordingly at build time. If it gets
-this wrong or cannot find the files then you can also set the location
-explicitly when invoking make:
+itself accordingly at build time. If it gets this wrong or cannot find the
+files then you can also set the location explicitly when invoking make:
 
     make SDK=/path/to/the/SDK
-
-You should specify an absolute path there; the Makefile will most likely work
-with a relative path as well, but faust2faustvst requires an absolute path.
 
 Installation
 ============
@@ -170,6 +166,10 @@ This will compile `amp.dsp` using the Faust compiler and then invoke the C++
 compiler on the resulting C++ code to create a working plugin. All the
 necessary compiler and linker options are provided automatically, and on OS X
 the script also takes care of creating a proper VST bundle.
+
+The faust2faustvst script looks for the SDK files in some common locations.
+If it doesn't find them, you can also set the proper location by editing the
+beginning of the script accordingly.
 
 The faust2faustvst script understands a number of options which correspond to
 various compilation options in the Makefile; run `faust2faustvst -h` to get a

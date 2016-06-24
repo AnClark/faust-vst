@@ -1,5 +1,4 @@
 .DS_Store
-faust2faustvst
 *.o
 *.so
 *.vst

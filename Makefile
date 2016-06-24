@@ -170,13 +170,7 @@ EXTRA_CFLAGS += -I$(SDK) -I$(SDKSRC) -Iexamples -D__cdecl= $(DEFINES)
 
 .PHONY: all clean install uninstall install-faust uninstall-faust dist distcheck
 
-all: faust2faustvst $(plugins)
-
-# This sets the proper SDK paths in the faust2faustvst script, detected at
-# build time.
-faust2faustvst: faust2faustvst.in
-	sed -e 's?@SDK@?$(SDK)?g;s?@SDKSRC@?$(SDKSRC)?g' < $< > $@
-	chmod a+x $@
+all: $(plugins)
 
 # Generic build rules.
 
@@ -229,7 +223,7 @@ endif
 # Clean.
 
 clean:
-	rm -Rf faust2faustvst $(dspsource:.dsp=.src) $(cppsource) $(stamps) $(objects) $(extra_objects) $(plugins)
+	rm -Rf $(dspsource:.dsp=.src) $(cppsource) $(stamps) $(objects) $(extra_objects) $(plugins)
 
 # Install.
 
@@ -243,7 +237,7 @@ uninstall:
 # Use this to add the Faust architectures and scripts included in this package
 # to an existing Faust installation.
 
-install-faust: faust2faustvst
+install-faust:
 	test -d $(DESTDIR)$(bindir) || mkdir -p $(DESTDIR)$(bindir)
 	cp faust2faustvst $(DESTDIR)$(bindir)
 	test -d $(DESTDIR)$(faustlibdir) || mkdir -p $(DESTDIR)$(faustlibdir)
@@ -255,7 +249,7 @@ uninstall-faust:
 
 # Roll a distribution tarball.
 
-DISTFILES = COPYING COPYING.LESSER Makefile README.md config.guess faust2faustvst.in faustvst.cpp faustvstqt.h Info.plist.in examples/*.dsp examples/*.lib examples/*.h
+DISTFILES = COPYING COPYING.LESSER Makefile README.md config.guess faust2faustvst faustvst.cpp faustvstqt.h Info.plist.in examples/*.dsp examples/*.lib examples/*.h
 
 dist:
 	rm -rf $(dist)

@@ -56,6 +56,10 @@ default, but you can change this by editing the script file. Both gcc and
 clang should work out of the box, other C++ compilers may need some twiddling
 with the compiler options in the Makefile and the faust2faustvst script.
 
+Note that faust-vst 1.1 and later require Faust version > 0.9.85, since the
+included examples have been updated to work with the new standard Faust
+library.
+
 You'll also need the Steinberg SDK version 2.4 or later. A zip archive with
 the latest SDK version can be found here:
 http://www.steinberg.net/en/company/developers.html. There's no standard

@@ -724,9 +724,13 @@ struct VSTPlugin {
   static int numControls()
   {
     const int num_voices = numVoices();
-    mydsp dsp;
+    // Allocate temporary dsp object on the heap (see comments under init_meta
+    // for explanation).
+    mydsp *dsp = new mydsp();
+    if (!dsp) return 0;
     VSTUI ui(num_voices);
-    dsp.buildUserInterface(&ui);
+    dsp->buildUserInterface(&ui);
+    delete dsp;
     // reserve one extra port for the polyphony control (instruments only)
     int num_extra = (num_voices>0);
 #if FAUST_MTS

@@ -262,12 +262,13 @@ Known Issues
 Custom plugin GUIs are currently supported on Linux only. Even on Linux, Qt
 GUIs are known to cause problems with some VST hosts due to library
 incompatibilities and multithreading issues. Therefore custom GUIs are
-disabled in Ardour right now (we suggest using faust-lv2 with Qt4 GUIs
-instead, these seem to work fine in Ardour). If you notice random crashes or
-other issues with the host that you're using, you may either want to run the
-plugins through a modular host like [Carla](https://github.com/falkTX/Carla)
-or just disable GUI support in the plugins and use the host-provided generic
-GUIs instead.
+disabled in Ardour and Reaper right now (for Ardour, we suggest using
+faust-lv2 with Qt4 GUIs instead, these seem to work fine there). If you notice
+random crashes or other issues with the host that you're using, you may either
+want to run the plugins through a modular host like [Carla][] or just disable
+GUI support in the plugins and use the host-provided generic GUIs instead.
+
+[Carla]: https://github.com/falkTX/Carla
 
 On Mac OS X some hosts don't seem to recognize the Faust-generated VST plugins
 at all. This might be due to some missing (esoteric) meta data. If anyone can

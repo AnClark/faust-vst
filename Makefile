@@ -2,7 +2,7 @@
 
 # Package name and version:
 dist = faust-vst-$(version)
-version = 1.1
+version = 1.2
 
 # Installation prefix and default installation dirs. NOTE: vstlibdir is used
 # to install the plugins, bindir and faustlibdir for the Faust-related tools

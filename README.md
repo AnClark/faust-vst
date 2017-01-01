@@ -1,7 +1,7 @@
 faust-vst
 =========
 
-Albert Gräf <aggraef@gmail.com>, 2016-03-19
+Albert Gräf <aggraef@gmail.com>, 2017-01-01
 
 This project provides a [VST][1] plugin architecture for the [Faust][2]
 programming language. The package contains the Faust architecture,
@@ -56,9 +56,10 @@ default, but you can change this by editing the script file. Both gcc and
 clang should work out of the box, other C++ compilers may need some twiddling
 with the compiler options in the Makefile and the faust2faustvst script.
 
-Note that faust-vst 1.1 and later require Faust version > 0.9.85, since the
-included examples have been updated to work with the new standard Faust
-library.
+Note that the examples still use the "old" a.k.a. "legacy" Faust library
+modules, so they should work out of the box with both "old" Faust versions (up
+to 0.9.85) and later ones featuring the "new" Faust library (anything after
+0.9.85, including current git sources).
 
 You'll also need the Steinberg SDK version 2.4 or later. A zip archive with
 the latest SDK version can be found here:

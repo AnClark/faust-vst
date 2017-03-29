@@ -10,8 +10,9 @@ version = 1.2
 prefix = /usr/local
 bindir = $(prefix)/bin
 libdir = $(prefix)/lib
+datadir = $(prefix)/share
 vstlibdir = $(libdir)/vst
-faustlibdir = $(libdir)/faust
+faustlibdir = $(datadir)/faust
 
 # Try to guess the Faust installation prefix.
 faustprefix = $(patsubst %/bin/faust,%,$(shell which faust 2>/dev/null))

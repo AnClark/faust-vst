@@ -2514,7 +2514,8 @@ VSTQtGUI::~VSTQtGUI()
 // This is a little wrapper class around QTGUI which takes care of eliminating
 // the freq/gain/gate controls of instruments in the user interface when
 // running the dsp's buildUserInterface method. It also adds polyphony and
-// tuning controls to instruments as needed. -ag
+// tuning controls to instruments as needed, and does some other extra
+// bookkeeping and on-the-fly modifications that we need. -ag
 
 // AG XXXFIXME: This is more complicated than we'd like it to be, since for
 // some unknown reason, the children of a tab widget are listed in reverse
@@ -2700,7 +2701,13 @@ public:
   }
 
   virtual void declare(FAUSTFLOAT* zone, const char* key, const char* val)
-  { ui->declare(zone, key, val); }
+  {
+    // XXXFIXME: Faust's Qt GUI implementation handles [scale:log] and similar
+    // meta data affecting the scaling of slider data, but this isn't
+    // supported in the current faust-vst implementation, so we just ignore
+    // this meta data for now.
+    if (strcmp(key, "scale")) ui->declare(zone, key, val);
+  }
 
 };
 

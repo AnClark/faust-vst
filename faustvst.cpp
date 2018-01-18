@@ -120,6 +120,7 @@ public:
 
   virtual void addHorizontalBargraph(const char* label, float* zone, float min, float max);
   virtual void addVerticalBargraph(const char* label, float* zone, float min, float max);
+  virtual void addSoundfile(const char* label, const char* filename, Soundfile** sf_zone) {}
 
   virtual void openTabBox(const char* label);
   virtual void openHorizontalBox(const char* label);
@@ -2447,6 +2448,7 @@ const char *VSTWrapper::getHostName()
 #line 2438 "faustvst.cpp"
 
 std::list<GUI*> GUI::fGuiList;
+ztimedmap GUI::gTimedZoneMap;
 
 /* Define this to get debugging output from the Qt-related code, or add the
    corresponding option to the qmake project options in the faust2faustvstqt
@@ -2685,7 +2687,7 @@ public:
       addElem(label);
     }
   }
-
+ 
   // -- passive widgets
   virtual void addHorizontalBargraph(const char* label, FAUSTFLOAT* zone,
 				     FAUSTFLOAT min, FAUSTFLOAT max)
@@ -2699,7 +2701,9 @@ public:
     ui->addVerticalBargraph(label, zone, min, max);
     addElem(label);
   }
-
+    
+  virtual void addSoundfile(const char* label, const char* filename, Soundfile** sf_zone) {}
+    
   virtual void declare(FAUSTFLOAT* zone, const char* key, const char* val)
   {
     // XXXFIXME: Faust's Qt GUI implementation handles [scale:log] and similar

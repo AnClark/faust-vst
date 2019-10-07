@@ -1,6 +1,8 @@
 faust-vst
 =========
 
+> This repository is forked from <https://bitbucket.org/agraef/faust-vst/src/master/>.
+
 Albert Gräf <aggraef@gmail.com>, 2017-01-01
 
 This project provides a [VST][1] plugin architecture for the [Faust][2]
